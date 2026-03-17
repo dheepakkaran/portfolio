@@ -7,7 +7,7 @@ export const Hero = () => {
       <div className="container mx-auto px-6 md:px-16 flex flex-row items-end gap-0">
 
         {/* LEFT — Text */}
-        <div className="flex-1 flex flex-col items-start justify-center pb-12 md:pb-20">
+        <div className="flex-1 flex flex-col items-start justify-center pb-44 md:pb-20">
           <motion.p
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

@@ -66,7 +66,7 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
       return (
         <div
           key={item.id}
-          className="relative flex items-center"
+          className={`relative flex ${isMobile ? 'flex-col items-center gap-0.5' : 'items-center'}`}
           onMouseEnter={() => setHoveredId(item.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
@@ -85,16 +85,6 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
             )}
           </AnimatePresence>
 
-          {/* Mobile permanent label — always visible to the right */}
-          {isMobile && (
-            <span
-              className={`absolute whitespace-nowrap text-[10px] font-medium pointer-events-none z-10 left-12
-                ${isActive ? 'text-white' : 'text-gray-500'}`}
-            >
-              {item.label}
-            </span>
-          )}
-
           <button
             onClick={() => handleClick(item.id)}
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
@@ -105,6 +95,14 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
           >
             <Icon className="w-4 h-4" />
           </button>
+
+          {/* Mobile permanent label — below icon */}
+          {isMobile && (
+            <span className={`text-[9px] font-medium whitespace-nowrap pointer-events-none leading-tight
+              ${isActive ? 'text-white' : 'text-gray-500'}`}>
+              {item.label}
+            </span>
+          )}
         </div>
       );
     });

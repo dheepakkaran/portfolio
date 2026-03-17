@@ -35,7 +35,7 @@ export const RightSidebar = ({ activeView = 'intro', onMyStoryClick, onTerminalC
       return (
         <div
           key={btn.id}
-          className="relative flex items-center"
+          className={`relative flex ${isMobile ? 'flex-col items-center gap-0.5' : 'items-center'}`}
           onMouseEnter={() => setHoveredId(btn.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
@@ -54,19 +54,19 @@ export const RightSidebar = ({ activeView = 'intro', onMyStoryClick, onTerminalC
             )}
           </AnimatePresence>
 
-          {/* Mobile permanent label — always visible to the left */}
-          {isMobile && (
-            <span className="absolute right-12 whitespace-nowrap text-[10px] font-medium text-gray-500 pointer-events-none z-10">
-              {btn.label}
-            </span>
-          )}
-
           <button
             onClick={btn.onClick}
             className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${btn.style}`}
           >
             <Icon className="w-4 h-4" />
           </button>
+
+          {/* Mobile permanent label — below icon */}
+          {isMobile && (
+            <span className="text-[9px] font-medium text-gray-400 whitespace-nowrap pointer-events-none leading-tight text-center">
+              {btn.label}
+            </span>
+          )}
         </div>
       );
     });
