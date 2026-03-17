@@ -35,7 +35,7 @@ export const RightSidebar = ({ activeView = 'intro', onMyStoryClick, onTerminalC
       return (
         <div
           key={btn.id}
-          className={`relative flex ${isMobile ? 'flex-col items-center gap-0.5' : 'items-center'}`}
+          className="relative flex items-center"
           onMouseEnter={() => setHoveredId(btn.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
@@ -56,17 +56,10 @@ export const RightSidebar = ({ activeView = 'intro', onMyStoryClick, onTerminalC
 
           <button
             onClick={btn.onClick}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 ${btn.style}`}
+            className={`${isMobile ? 'w-7 h-7' : 'w-9 h-9'} rounded-full flex items-center justify-center transition-all duration-200 ${btn.style}`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
           </button>
-
-          {/* Mobile permanent label — below icon */}
-          {isMobile && (
-            <span className="text-[9px] font-medium text-gray-400 whitespace-nowrap pointer-events-none leading-tight text-center">
-              {btn.label}
-            </span>
-          )}
         </div>
       );
     });
@@ -85,16 +78,14 @@ export const RightSidebar = ({ activeView = 'intro', onMyStoryClick, onTerminalC
         <div className="w-px h-8 bg-white/20 mt-2" />
       </motion.nav>
 
-      {/* Mobile — My Story + OS + Resume + Contact, top-right, fades when inside section */}
+      {/* Mobile — minimized icons, top-right, fades when inside section */}
       <motion.nav
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: mobileVisible ? 1 : 0, x: mobileVisible ? 0 : 20, pointerEvents: mobileVisible ? 'auto' : 'none' }}
         transition={{ duration: 0.35 }}
-        className="flex md:hidden fixed right-4 top-20 z-50 flex-col items-center gap-1"
+        className="flex md:hidden fixed right-3 top-20 z-50 flex-col items-center gap-1"
       >
-        <div className="w-px h-6 bg-white/20 mb-1" />
         {buildIcons(mobileButtons, true)}
-        <div className="w-px h-6 bg-white/20 mt-1" />
       </motion.nav>
     </>
   );

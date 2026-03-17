@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Play, Pause, RotateCcw } from 'lucide-react';
 
 const paragraphs = [
   { text: 'The Boy Who Listened to the Sky', center: true, bold: true },
@@ -29,52 +29,81 @@ interface Props {
 
 export const MyStory = ({ onBack }: Props) => {
   const [revealedCount, setRevealedCount] = useState(0);
-  const [muted, setMuted] = useState(false);
-  const hasStarted = useRef(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  useEffect(() => {
-    setRevealedCount(0);
-    window.speechSynthesis.cancel();
+  const buildUtterance = () => {
+    const utterance = new SpeechSynthesisUtterance(fullText);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.92;
+    utterance.pitch = 1.05;
 
-    const timer = setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(fullText);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.92;
-      utterance.pitch = 1.05;
+    utterance.addEventListener('boundary', (e: SpeechSynthesisEvent) => {
+      if (e.name !== 'word') return;
+      const count = fullText.substring(0, e.charIndex).trim().split(/\s+/).filter(Boolean).length;
+      setRevealedCount(count + 1);
+    });
+    utterance.addEventListener('end', () => {
+      setRevealedCount(totalWords);
+      setIsPlaying(false);
+    });
 
-      utterance.addEventListener('boundary', (e: SpeechSynthesisEvent) => {
-        if (e.name !== 'word') return;
-        const count = fullText.substring(0, e.charIndex).trim().split(/\s+/).filter(Boolean).length;
-        setRevealedCount(count + 1);
-      });
-      utterance.addEventListener('end', () => setRevealedCount(totalWords));
+    const voices = window.speechSynthesis.getVoices();
+    const preferred =
+      voices.find((v) => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha'))) ||
+      voices.find((v) => v.lang.startsWith('en'));
+    if (preferred) utterance.voice = preferred;
 
-      const voices = window.speechSynthesis.getVoices();
-      const preferred =
-        voices.find((v) => v.lang === 'en-US' && (v.name.includes('Google') || v.name.includes('Samantha'))) ||
-        voices.find((v) => v.lang.startsWith('en'));
-      if (preferred) utterance.voice = preferred;
+    return utterance;
+  };
 
-      window.speechSynthesis.speak(utterance);
-      hasStarted.current = true;
-    }, 150);
-
-    return () => {
-      clearTimeout(timer);
+  const handlePlay = () => {
+    if (!hasStarted) {
+      // First play — start from beginning
       window.speechSynthesis.cancel();
-    };
-  }, []);
+      setRevealedCount(0);
+      const utt = buildUtterance();
+      utteranceRef.current = utt;
+      window.speechSynthesis.speak(utt);
+      setIsPlaying(true);
+      setHasStarted(true);
+    } else {
+      // Resume
+      window.speechSynthesis.resume();
+      setIsPlaying(true);
+    }
+  };
 
-  const toggleMute = () => {
-    if (muted) window.speechSynthesis.resume();
-    else window.speechSynthesis.pause();
-    setMuted((p) => !p);
+  const handlePause = () => {
+    window.speechSynthesis.pause();
+    setIsPlaying(false);
+  };
+
+  const handleRestart = () => {
+    window.speechSynthesis.cancel();
+    setRevealedCount(0);
+    setHasStarted(false);
+    setIsPlaying(false);
+    setTimeout(() => {
+      const utt = buildUtterance();
+      utteranceRef.current = utt;
+      window.speechSynthesis.speak(utt);
+      setIsPlaying(true);
+      setHasStarted(true);
+    }, 100);
   };
 
   const handleBack = () => {
     window.speechSynthesis.cancel();
     onBack();
   };
+
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
 
   return (
     <section className="min-h-screen flex flex-col justify-start pt-20 pb-10">
@@ -91,16 +120,28 @@ export const MyStory = ({ onBack }: Props) => {
             <ArrowLeft className="w-3.5 h-3.5" /> Back
           </motion.button>
 
-          <motion.button
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            onClick={toggleMute}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/10"
+            className="flex items-center gap-2"
           >
-            {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-            {muted ? 'Unmute' : 'Mute'}
-          </motion.button>
+            {hasStarted && (
+              <button
+                onClick={handleRestart}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/10"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={isPlaying ? handlePause : handlePlay}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/10"
+            >
+              {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+              {isPlaying ? 'Pause' : hasStarted ? 'Resume' : 'Listen'}
+            </button>
+          </motion.div>
         </div>
 
         <motion.p
@@ -137,7 +178,7 @@ export const MyStory = ({ onBack }: Props) => {
                     style={{
                       display: 'inline-block',
                       marginRight: '0.28em',
-                      opacity: w.globalIndex < revealedCount ? 1 : 0,
+                      opacity: w.globalIndex < revealedCount ? 1 : 0.15,
                       transform: w.globalIndex < revealedCount ? 'translateY(0)' : 'translateY(6px)',
                       transition: 'opacity 0.18s ease-out, transform 0.18s ease-out',
                     }}

@@ -66,7 +66,7 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
       return (
         <div
           key={item.id}
-          className={`relative flex ${isMobile ? 'flex-col items-center gap-0.5' : 'items-center'}`}
+          className="relative flex items-center"
           onMouseEnter={() => setHoveredId(item.id)}
           onMouseLeave={() => setHoveredId(null)}
         >
@@ -87,22 +87,14 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
 
           <button
             onClick={() => handleClick(item.id)}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200
+            className={`${isMobile ? 'w-7 h-7' : 'w-9 h-9'} rounded-full flex items-center justify-center transition-all duration-200
               ${isActive
                 ? 'bg-white text-black shadow-[0_0_12px_rgba(255,255,255,0.3)]'
                 : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white border border-white/10'
               }`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className={isMobile ? 'w-3 h-3' : 'w-4 h-4'} />
           </button>
-
-          {/* Mobile permanent label — below icon */}
-          {isMobile && (
-            <span className={`text-[9px] font-medium whitespace-nowrap pointer-events-none leading-tight
-              ${isActive ? 'text-white' : 'text-gray-500'}`}>
-              {item.label}
-            </span>
-          )}
         </div>
       );
     });
@@ -121,16 +113,14 @@ export const Sidebar = ({ activeView = 'intro', onHomeClick, onAboutClick, onRes
         <div className="w-px h-8 bg-white/20 mt-2" />
       </motion.nav>
 
-      {/* Mobile — 4 icons only, bottom-left */}
+      {/* Mobile — 4 icons only, bottom-left, minimized */}
       <motion.nav
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: mobileVisible ? 1 : 0, x: mobileVisible ? 0 : -20, pointerEvents: mobileVisible ? 'auto' : 'none' }}
         transition={{ duration: 0.35 }}
-        className="flex md:hidden fixed left-4 bottom-2 z-50 flex-col items-center gap-1"
+        className="flex md:hidden fixed left-3 bottom-3 z-50 flex-col items-center gap-1"
       >
-        <div className="w-px h-6 bg-white/20 mb-1" />
         {buildIcons(mobileItems, 'left', true)}
-        <div className="w-px h-6 bg-white/20 mt-1" />
       </motion.nav>
     </>
   );
