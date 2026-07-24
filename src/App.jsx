@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import profilePic from './profile.jpeg';
+import profilePic from './profile.jpeg'; 
 
 const transitionCurve = [0.22, 1, 0.36, 1]; 
 
@@ -34,7 +34,7 @@ const projectsData = [
     category: "Generative AI & NLP",
     tags: ["Llama 3.1 8B", "QLoRA", "PEFT", "HuggingFace", "Transformers"],
     desc: "A Tamil-English code-switched benchmark for technical Q&A with QLoRA fine-tuning and novel evaluation metrics (CSPS / TTR / TCF). Published on HuggingFace Hub.",
-    image: "/llm.png",
+    image: "/storage-preview.png",
     link: "https://github.com/dheepakkaran/TamilTech-QA"
   },
   { 
@@ -70,6 +70,7 @@ export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
 
+  // Block scrolling when any modal is open
   useEffect(() => {
     if (selectedProject || isResumeOpen) {
       document.body.style.overflow = 'hidden';
@@ -84,13 +85,14 @@ export default function Portfolio() {
   return (
     <div className="bg-black text-gray-200 min-h-screen font-sans selection:bg-gray-200 selection:text-black overflow-x-hidden relative">
       
+      {/* Background Video */}
       <div className="fixed inset-0 w-full h-full z-0 bg-black">
         <video 
           autoPlay
           loop
           muted 
           playsInline
-          src="/bg-video.mp4" 
+          src="./bg-video.mp4" 
           className="w-full h-full object-cover opacity-[0.45] saturate-[0.7]"
         />
         <div className="absolute inset-0 bg-black/60"></div>
@@ -98,6 +100,7 @@ export default function Portfolio() {
 
       <div className="relative z-10">
         
+        {/* Navigation */}
         <motion.nav 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -114,6 +117,7 @@ export default function Portfolio() {
           </div>
         </motion.nav>
 
+        {/* Hero Section */}
         <section className="min-h-screen flex items-center justify-center pt-28 pb-16 px-6 md:px-24">
           <div className="max-w-7xl w-full flex flex-col md:flex-row items-center justify-between gap-12 md:gap-20">
             
@@ -174,6 +178,7 @@ export default function Portfolio() {
           </div>
         </section>
 
+        {/* Experience Section */}
         <section id="experience" className="py-16 md:py-24 px-6 md:px-24">
           <div className="max-w-7xl w-full mx-auto">
             
@@ -184,14 +189,14 @@ export default function Portfolio() {
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
             </div>
             
-            <div className="space-y-12 md:space-y-16 mb-20 md:mb-24">
-              <motion.div 
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} 
-                transition={{ duration: 0.6, ease: transitionCurve }}
-                className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl"
-              >
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "100px" }} 
+              transition={{ duration: 0.8, ease: transitionCurve }}
+              className="space-y-12 md:space-y-16 mb-20 md:mb-24"
+            >
+              <div className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase">
@@ -219,9 +224,10 @@ export default function Portfolio() {
                     </span>
                   ))}
                 </div>
-              </motion.div>
-            </div>
+              </div>
+            </motion.div>
 
+            {/* Projects Section */}
             <div id="projects" className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
                 02. Selected Works
@@ -229,15 +235,17 @@ export default function Portfolio() {
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
             </div>
             
-            <div className="space-y-6 md:space-y-8">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "100px" }} 
+              transition={{ duration: 0.8, ease: transitionCurve }}
+              className="space-y-6 md:space-y-8"
+            >
               {projectsData.map((project) => (
-                <motion.div 
+                <div 
                   key={project.id}
                   onClick={() => setSelectedProject(project)}
-                  initial={{ opacity: 0, y: 15 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }} 
-                  transition={{ duration: 0.6, ease: transitionCurve }} 
                   className="py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] active:scale-[0.98] md:active:scale-100 md:px-4 cursor-pointer transition-all duration-300 rounded-xl group"
                 >
                   <div className="flex-1">
@@ -259,13 +267,14 @@ export default function Portfolio() {
                       </span>
                     ))}
                   </div>
-                </motion.div>
+                </div>
               ))}
-            </div>
+            </motion.div>
 
           </div>
         </section>
 
+        {/* Footer */}
         <footer className="py-24 md:py-32 px-6 md:px-24 flex flex-col items-center justify-center text-center">
           <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-4 drop-shadow-md">Available for Fall 2026 roles</p>
           <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="text-2xl md:text-4xl text-white font-light hover:text-gray-300 active:scale-95 transition-all duration-300 pb-12 drop-shadow-lg">
@@ -275,9 +284,10 @@ export default function Portfolio() {
         </footer>
       </div>
 
+      {/* Resume Modal */}
       <AnimatePresence>
         {isResumeOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -333,9 +343,10 @@ export default function Portfolio() {
         )}
       </AnimatePresence>
 
+      {/* Project Image Modal */}
       <AnimatePresence>
         {selectedProject && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8">
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
