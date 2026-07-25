@@ -92,23 +92,22 @@ export default function Portfolio() {
           muted 
           playsInline
           className="w-full h-full object-cover"
-          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }} // Forces GPU acceleration
+          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
         >
           <source src="./bg-video.mp4" type="video/mp4" />
         </video>
-        {/* Simple color overlays instead of expensive CSS filters */}
         <div className="absolute inset-0 bg-black/65"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
       </div>
 
       <div className="relative z-10">
         
-        {/* Navigation */}
+        {/* Navigation - Adjusted padding for better breathing room */}
         <motion.nav 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: transitionCurve }}
-          className="w-full pt-8 md:pt-12 px-6 md:px-16 lg:px-24 flex justify-between items-center absolute top-0 z-50"
+          className="w-full pt-8 md:pt-12 px-8 md:px-16 lg:px-24 xl:px-32 flex justify-between items-center absolute top-0 z-50"
         >
           <div className="text-white font-bold tracking-[0.2em] uppercase text-xs md:text-sm drop-shadow-md">
             Dheepak Karan
@@ -120,9 +119,9 @@ export default function Portfolio() {
           </div>
         </motion.nav>
 
-        {/* Hero Section - Exact Side-by-Side Layout from Screenshot */}
-        <section id="about" className="min-h-screen flex items-center justify-center pt-24 pb-16 px-6 md:px-16 lg:px-24">
-          <div className="max-w-[1400px] w-full flex flex-col md:flex-row items-center justify-between gap-12 lg:gap-20">
+        {/* Hero Section - Scaled down slightly for standard laptops (lg screens) */}
+        <section id="about" className="min-h-screen flex items-center justify-center pt-24 pb-16 px-8 md:px-16 lg:px-24 xl:px-32">
+          <div className="max-w-[1400px] w-full flex flex-col md:flex-row items-center justify-between gap-10 lg:gap-16 xl:gap-20">
             
             {/* Left Column - Text */}
             <motion.div 
@@ -130,29 +129,30 @@ export default function Portfolio() {
               variants={{ visible: { transition: { staggerChildren: 0.15 } } }}
               className="flex-1 w-full mt-12 md:mt-0 max-w-2xl"
             >
-              <motion.div variants={fadeUp} className="flex items-center gap-6 mb-8">
-                <div className="h-[1px] w-12 bg-white/20"></div>
+              <motion.div variants={fadeUp} className="flex items-center gap-4 md:gap-6 mb-6 xl:mb-8">
+                <div className="h-[1px] w-8 md:w-12 bg-white/20"></div>
                 <p className="text-gray-400 tracking-[0.3em] uppercase text-[9px] md:text-[10px] font-medium drop-shadow-md">
                   Software Engineer
                 </p>
               </motion.div>
 
-              <motion.h1 variants={fadeUp} className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[1.05] tracking-tighter mb-8 drop-shadow-lg">
+              {/* Scaled down text for lg, massive only on xl to prevent cramped feeling */}
+              <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-light text-white leading-[1.1] tracking-tighter mb-6 xl:mb-8 drop-shadow-lg">
                 Engineering <br className="hidden md:block"/>
                 <span className="text-gray-400 italic font-serif">scalable</span> <br className="hidden md:block"/>
                 backend systems.
               </motion.h1>
 
-              <motion.div variants={fadeUp} className="border-l border-white/10 pl-6 mb-12">
-                <p className="text-gray-400 font-light text-sm md:text-base max-w-md leading-relaxed drop-shadow-md">
+              <motion.div variants={fadeUp} className="border-l border-white/10 pl-5 xl:pl-6 mb-10 xl:mb-12">
+                <p className="text-gray-400 font-light text-xs sm:text-sm lg:text-sm xl:text-base max-w-sm xl:max-w-md leading-relaxed drop-shadow-md">
                   Quiet resilience. Navigating complexity and building robust APIs that withstand the storm. Always pushing for optimal performance and clean architecture.
                 </p>
               </motion.div>
               
-              <motion.div variants={fadeUp} className="flex flex-wrap gap-8 items-center text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-bold">
+              <motion.div variants={fadeUp} className="flex flex-wrap gap-6 xl:gap-8 items-center text-[9px] xl:text-[10px] uppercase tracking-[0.2em] font-bold">
                 <button 
                   onClick={() => setIsResumeOpen(true)}
-                  className="text-black bg-white px-8 py-4 hover:bg-gray-200 active:scale-95 transition-all duration-300 shadow-lg w-full sm:w-auto text-center"
+                  className="text-black bg-white px-6 xl:px-8 py-3 xl:py-4 hover:bg-gray-200 active:scale-95 transition-all duration-300 shadow-lg w-full sm:w-auto text-center"
                 >
                   View Resume
                 </button>
@@ -165,22 +165,20 @@ export default function Portfolio() {
               </motion.div>
             </motion.div>
 
-            {/* Right Column - Image with Exact Frame Proportions */}
+            {/* Right Column - Image scaled for better proportions */}
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 1.5, delay: 0.4, ease: transitionCurve }}
               className="flex-1 w-full flex justify-center md:justify-end mt-12 md:mt-0"
             >
-              <div className="relative w-full max-w-[320px] sm:max-w-[400px] md:max-w-[480px] aspect-[4/5] bg-zinc-900 group shadow-2xl">
+              <div className="relative w-full max-w-[280px] sm:max-w-[340px] md:max-w-[380px] lg:max-w-[420px] xl:max-w-[480px] aspect-[4/5] bg-zinc-900 group shadow-2xl">
                 <img 
                   src={profilePic} 
                   alt="Dheepak Karan" 
                   className="w-full h-full object-cover grayscale opacity-90 transition-opacity duration-700 hover:opacity-100"
                 />
-                {/* Fade at bottom of image */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none"></div>
-                {/* Thin Inner Border Box */}
                 <div className="absolute inset-[1rem] md:inset-[1.5rem] border border-white/10 pointer-events-none"></div>
               </div>
             </motion.div>
@@ -188,7 +186,7 @@ export default function Portfolio() {
         </section>
 
         {/* Experience Section */}
-        <section id="experience" className="py-16 md:py-24 px-6 md:px-16 lg:px-24">
+        <section id="experience" className="py-16 md:py-24 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
@@ -278,7 +276,7 @@ export default function Portfolio() {
         </section>
 
         {/* Footer */}
-        <footer className="py-24 md:py-32 px-6 md:px-24 flex flex-col items-center justify-center text-center">
+        <footer className="py-24 md:py-32 px-8 md:px-16 lg:px-24 xl:px-32 flex flex-col items-center justify-center text-center">
           <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-4 drop-shadow-md">Available for Fall 2026 roles</p>
           <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="text-2xl md:text-4xl text-white font-light hover:text-gray-300 active:scale-95 transition-all duration-300 pb-12 drop-shadow-lg">
             Let's talk.
