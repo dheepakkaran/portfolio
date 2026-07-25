@@ -70,7 +70,6 @@ export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
 
-  // Block scrolling when any modal is open
   useEffect(() => {
     if (selectedProject || isResumeOpen) {
       document.body.style.overflow = 'hidden';
@@ -85,7 +84,7 @@ export default function Portfolio() {
   return (
     <div className="bg-black text-gray-200 min-h-screen font-sans selection:bg-gray-200 selection:text-black overflow-x-hidden relative">
       
-      {/* Background Video */}
+      {/* Background Video with Blur Overlay to match the code background vibe */}
       <div className="fixed inset-0 w-full h-full z-0 bg-black">
         <video 
           autoPlay
@@ -93,86 +92,94 @@ export default function Portfolio() {
           muted 
           playsInline
           src="./bg-video.mp4" 
-          className="w-full h-full object-cover opacity-[0.45] saturate-[0.7]"
+          className="w-full h-full object-cover opacity-30 saturate-50"
         />
-        <div className="absolute inset-0 bg-black/60"></div>
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"></div>
       </div>
 
       <div className="relative z-10">
         
-        {/* Navigation */}
+        {/* Navigation - Exact match to the image */}
         <motion.nav 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: transitionCurve }}
-          className="w-full p-6 md:p-12 flex justify-between items-center mix-blend-difference absolute top-0 z-50"
+          className="w-full pt-10 px-8 md:px-24 flex justify-between items-center absolute top-0 z-50"
         >
-          <div className="text-white font-semibold tracking-[0.15em] uppercase text-xs md:text-base drop-shadow-md">
+          <div className="text-white font-bold tracking-[0.2em] uppercase text-xs md:text-sm drop-shadow-md">
             Dheepak Karan
           </div>
-          <div className="space-x-10 text-[10px] tracking-[0.3em] uppercase hidden md:flex text-gray-400">
+          <div className="space-x-12 text-[9px] tracking-[0.3em] uppercase hidden md:flex text-gray-500 font-medium">
             <a href="#about" className="hover:text-white transition-colors duration-300">About</a>
             <a href="#experience" className="hover:text-white transition-colors duration-300">Experience</a>
             <a href="#projects" className="hover:text-white transition-colors duration-300">Projects</a>
           </div>
         </motion.nav>
 
-        {/* Hero Section */}
-        <section className="min-h-screen flex items-center justify-center pt-28 pb-16 px-6 md:px-24">
-          <div className="max-w-7xl w-full flex flex-col md:flex-row items-center justify-between gap-12 md:gap-20">
+        {/* Hero Section - Exact layout match */}
+        <section className="min-h-screen flex items-center justify-center pt-24 pb-16 px-6 md:px-24">
+          <div className="max-w-[1400px] w-full flex flex-col md:flex-row items-center justify-between gap-12 md:gap-16">
             
+            {/* Left Column - Text */}
             <motion.div 
               initial="hidden" animate="visible" 
               variants={{ visible: { transition: { staggerChildren: 0.15 } } }}
-              className="flex-1 w-full mt-8 md:mt-0"
+              className="flex-1 w-full mt-12 md:mt-0 max-w-2xl"
             >
-              <motion.div variants={fadeUp} className="flex items-center gap-4 md:gap-6 mb-6 md:mb-8">
-                <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
-                <p className="text-gray-400 tracking-[0.3em] uppercase text-[9px] md:text-[10px] drop-shadow-md">
+              <motion.div variants={fadeUp} className="flex items-center gap-6 mb-8">
+                <div className="h-[1px] w-12 bg-white/20"></div>
+                <p className="text-gray-400 tracking-[0.3em] uppercase text-[10px] font-medium drop-shadow-md">
                   Software Engineer
                 </p>
               </motion.div>
 
-              <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl md:text-6xl lg:text-[5rem] font-light text-white leading-[1.15] md:leading-[1.1] tracking-tighter mb-6 md:mb-8 drop-shadow-lg">
-                Engineering <span className="text-gray-400 italic font-serif">scalable</span> <br/>
+              <motion.h1 variants={fadeUp} className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-light text-white leading-[1.1] tracking-tighter mb-8 drop-shadow-lg">
+                Engineering <br/>
+                <span className="text-gray-400 italic font-serif">scalable</span> <br/>
                 backend systems.
               </motion.h1>
 
-              <motion.p variants={fadeUp} className="text-gray-300 font-light text-sm md:text-base max-w-lg leading-relaxed mb-10 md:mb-12 drop-shadow-md border-l border-white/20 pl-5 md:pl-6">
-                Quiet resilience. Navigating complexity and building robust APIs that withstand the storm. Always pushing for optimal performance and clean architecture.
-              </motion.p>
+              <motion.div variants={fadeUp} className="border-l border-white/10 pl-6 mb-12">
+                <p className="text-gray-400 font-light text-sm md:text-base max-w-md leading-relaxed drop-shadow-md">
+                  Quiet resilience. Navigating complexity and building robust APIs that withstand the storm. Always pushing for optimal performance and clean architecture.
+                </p>
+              </motion.div>
               
-              <motion.div variants={fadeUp} className="flex flex-wrap gap-6 md:gap-8 items-center text-[9px] md:text-[10px] uppercase tracking-[0.2em] font-medium">
+              <motion.div variants={fadeUp} className="flex flex-wrap gap-8 items-center text-[10px] uppercase tracking-[0.2em] font-bold">
                 <button 
                   onClick={() => setIsResumeOpen(true)}
-                  className="text-black bg-white px-6 md:px-8 py-3 md:py-4 hover:bg-gray-300 active:scale-95 transition-all duration-300 drop-shadow-lg w-full sm:w-auto text-center"
+                  className="text-black bg-white px-8 py-4 hover:bg-gray-200 active:scale-95 transition-all duration-300 drop-shadow-lg"
                 >
                   View Resume
                 </button>
-                <a href="https://github.com/dheepakkaran" target="_blank" rel="noreferrer" className="text-white relative group pb-1 drop-shadow-md">
-                  GitHub
-                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></span>
+                <a href="https://github.com/dheepakkaran" target="_blank" rel="noreferrer" className="text-white hover:text-gray-300 transition-colors duration-300 drop-shadow-md">
+                  Github
                 </a>
-                <a href="https://linkedin.com/in/dheepakkaran" target="_blank" rel="noreferrer" className="text-gray-400 hover:text-white transition-colors duration-300 pb-1 drop-shadow-md">
-                  LinkedIn
+                <a href="https://linkedin.com/in/dheepakkaran" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-white transition-colors duration-300 drop-shadow-md">
+                  Linkedin
                 </a>
               </motion.div>
             </motion.div>
 
+            {/* Right Column - Image with Frame */}
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 1.5, delay: 0.4, ease: transitionCurve }}
               className="flex-1 w-full flex justify-center md:justify-end mt-12 md:mt-0"
             >
-              <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[450px] aspect-[3/4] rounded-sm overflow-hidden group">
+              <div className="relative w-full max-w-[350px] md:max-w-[480px] aspect-[4/5] bg-zinc-900 group">
                 <img 
                   src={profilePic} 
                   alt="Dheepak Karan" 
-                  className="w-full h-full object-cover grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 ease-in-out transform group-hover:scale-105"
+                  className="w-full h-full object-cover grayscale opacity-90 transition-opacity duration-700 hover:opacity-100"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none"></div>
-                <div className="absolute inset-4 border border-white/20 scale-[0.98] group-hover:scale-100 transition-transform duration-700 pointer-events-none"></div>
+                
+                {/* Bottom Fade Gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent pointer-events-none"></div>
+                
+                {/* Thin Inner Square Frame exactly like the screenshot */}
+                <div className="absolute inset-[1rem] md:inset-[1.5rem] border border-white/10 pointer-events-none"></div>
               </div>
             </motion.div>
           </div>
@@ -180,8 +187,7 @@ export default function Portfolio() {
 
         {/* Experience Section */}
         <section id="experience" className="py-16 md:py-24 px-6 md:px-24">
-          <div className="max-w-7xl w-full mx-auto">
-            
+          <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
                 01. Experience
@@ -207,16 +213,13 @@ export default function Portfolio() {
                       Software Engineer
                     </span>
                   </div>
-                  
                   <h3 className="text-xl md:text-3xl font-light text-white tracking-tight mb-2">
                     Guardian Life
                   </h3>
-                  
                   <p className="text-gray-400 font-light text-xs md:text-sm leading-relaxed max-w-xl">
                     Engineered robust backend microservices utilizing Java Spring Boot and Python FastAPI. Optimized complex database queries and pipelines, reducing latency by 30%.
                   </p>
                 </div>
-
                 <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
                   {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i) => (
                     <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
@@ -259,7 +262,6 @@ export default function Portfolio() {
                       {project.desc}
                     </p>
                   </div>
-
                   <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
                     {project.tags.map((tag, i) => (
                       <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
@@ -270,7 +272,6 @@ export default function Portfolio() {
                 </div>
               ))}
             </motion.div>
-
           </div>
         </section>
 
@@ -296,7 +297,6 @@ export default function Portfolio() {
               className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer"
               onClick={() => setIsResumeOpen(false)}
             />
-            
             <motion.div
               variants={modernModalVariants}
               initial="hidden"
@@ -330,7 +330,6 @@ export default function Portfolio() {
                   </button>
                 </div>
               </div>
-
               <div className="w-full h-full bg-black/50">
                 <iframe 
                   src="/Dheepak_Karan_Resume.pdf" 
@@ -355,7 +354,6 @@ export default function Portfolio() {
               className="absolute inset-0 bg-black/60 backdrop-blur-md cursor-pointer"
               onClick={() => setSelectedProject(null)}
             />
-            
             <motion.div
               variants={modernModalVariants}
               initial="hidden"
