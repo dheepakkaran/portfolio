@@ -28,47 +28,181 @@ const modernModalVariants = {
 };
 
 const projectsData = [
-  { 
-    id: "tamiltech",
-    title: "TamilTech-QA", 
-    category: "Generative AI & NLP",
-    tags: ["Llama 3.1 8B", "QLoRA", "PEFT", "HuggingFace", "Transformers"],
-    desc: "A Tamil-English code-switched benchmark for technical Q&A with QLoRA fine-tuning and novel evaluation metrics (CSPS / TTR / TCF). Published on HuggingFace Hub.",
-    image: "./llm.png",
-    link: "https://github.com/dheepakkaran/TamilTech-QA"
+  {
+    id: "incident-triage",
+    title: "Incident Triage Agent",
+    category: "Agentic AI & AIOps",
+    tags: ["LangGraph", "Python", "MCP", "Groq", "Streamlit"],
+    poster: "./projects/incident-triage-poster.jpg",
+    image: "./projects/incident-triage.webp",
+    link: "https://github.com/dheepakkaran/incident-triage-agent"
   },
-  { 
-    id: "storage",
-    title: "Scalable File Storage", 
-    category: "Cloud Infrastructure",
-    tags: ["Java", "Spring Boot", "Docker", "AWS S3", "SHA-256"],
-    desc: "Chunk-based cloud storage with SHA-256 validation. Engineered modular backend architecture using Docker for high availability.",
-    image: "./storage.png",
-    link: "https://github.com/dheepakkaran/scalable-file-storage"
+  {
+    id: "llm-gateway",
+    title: "LLM Gateway",
+    category: "Serverless Infrastructure",
+    tags: ["AWS Lambda", "DynamoDB", "Python", "EventBridge", "Telegram"],
+    poster: "./projects/llm-gateway-poster.jpg",
+    image: "./projects/llm-gateway.webp",
+    link: "https://github.com/dheepakkaran/llm-gateway"
   },
-  { 
-    id: "orderflow",
-    title: "OrderFlow Microservices", 
-    category: "Real-time Event Engine",
-    tags: ["Apache Kafka", "Java", "PostgreSQL", "Event-Driven"],
-    desc: "Event-driven processing handling 50k+ transactions. Achieved 331 orders/second throughput.",
-    image: "./orderflow.png",
-    link: "https://github.com/dheepakkaran/order-flow"
+  {
+    id: "leetbot",
+    title: "LeetBot",
+    category: "Automation",
+    tags: ["Python", "GitHub Actions", "Gemini", "Telegram Bot"],
+    poster: "./projects/leetbot-poster.jpg",
+    image: "./projects/leetbot.webp",
+    link: "https://github.com/dheepakkaran/leetbot"
   },
-  { 
-    id: "equity",
-    title: "Equity-Agent API", 
-    category: "Algorithmic Pipeline",
-    tags: ["Python", "FastAPI", "Machine Learning", "PostgreSQL"],
-    desc: "Automated trading pipelines with ML integration for portfolio management and prediction accuracy.",
-    image: "./equity.png",
-    link: "https://github.com/dheepakkaran/equity-agent"
+  {
+    id: "xg-from-words",
+    title: "xG From Words",
+    category: "Sports Analytics & NLP",
+    tags: ["Python", "Sentence Transformers", "XGBoost", "scikit-learn"],
+    poster: "./projects/xg-from-words-poster.jpg",
+    image: "./projects/xg-from-words.webp",
+    link: "https://github.com/dheepakkaran/xg-from-words"
   }
 ];
+
+const GITHUB_USER = "dheepakkaran";
+// Public mirror of the GitHub contribution calendar (no token needed)
+const CONTRIBUTIONS_URL = `https://github-contributions-api.jogruber.de/v4/${GITHUB_USER}?y=last`;
+// Empty days use the site's neutral translucent grey; active days use GitHub's dark-theme greens
+const heatLevels = ["bg-white/[0.06]", "bg-[#033a16]", "bg-[#196c2e]", "bg-[#2ea043]", "bg-[#56d364]"];
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// Only the most recent months are shown
+const MONTHS_SHOWN = 6;
+
+const toLocalDate = (isoDate) => new Date(`${isoDate}T00:00:00`);
+
+function ContributionHeatmap() {
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(CONTRIBUTIONS_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((json) => { if (!cancelled) setData(json); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Nothing is better than a broken card
+  if (failed) return null;
+
+  const allDays = data?.contributions ?? [];
+  // Keep the last MONTHS_SHOWN months, starting on that week's Sunday so the first column is full
+  const start = allDays.length ? toLocalDate(allDays[allDays.length - 1].date) : new Date();
+  start.setMonth(start.getMonth() - MONTHS_SHOWN);
+  start.setDate(start.getDate() - start.getDay());
+  const days = allDays.filter((day) => toLocalDate(day.date) >= start);
+  // Pad the first week so every column runs Sunday to Saturday
+  const leadingBlanks = days.length ? toLocalDate(days[0].date).getDay() : 0;
+  const cells = [...Array(leadingBlanks).fill(null), ...days];
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const columns = weeks.length ? weeks : Array.from({ length: 27 }, () => []);
+
+  // One label per month, on the first week of that month. The first column is only labelled
+  // when it starts near the 1st, so a partial month never crowds the next label.
+  const monthLabels = columns.map((week, i) => {
+    const first = week.find(Boolean);
+    if (!first) return "";
+    const date = toLocalDate(first.date);
+    if (i === 0) return date.getDate() <= 7 ? monthNames[date.getMonth()] : "";
+    const prev = columns[i - 1].find(Boolean);
+    const prevMonth = prev ? toLocalDate(prev.date).getMonth() : null;
+    return date.getMonth() !== prevMonth ? monthNames[date.getMonth()] : "";
+  });
+
+  const gridColumns = { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` };
+
+  return (
+    <a
+      href={`https://github.com/${GITHUB_USER}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`GitHub contributions for ${GITHUB_USER}`}
+      className="group block w-full max-w-xl mx-auto p-5 md:p-6 bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 transition-[background-color,border-color,translate] duration-500"
+    >
+      <div className="grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 ease-out">
+        <div className="grid gap-[2px] md:gap-[3px] h-4 mb-1.5" style={gridColumns}>
+          {monthLabels.map((label, i) => (
+            <span key={i} className="text-[9px] md:text-[10px] leading-4 text-gray-500 whitespace-nowrap">
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-flow-col grid-rows-7 gap-[2px] md:gap-[3px]" style={gridColumns}>
+          {columns.flatMap((week, w) =>
+            Array.from({ length: 7 }, (_, d) => {
+              const day = week[d];
+              const shade = !data ? `${heatLevels[0]} animate-pulse` : day ? heatLevels[day.level] : "bg-transparent";
+              const label = day
+                ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${toLocalDate(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                : undefined;
+              return <div key={`${w}-${d}`} title={label} className={`aspect-square rounded-[2px] ${shade}`} />;
+            })
+          )}
+        </div>
+      </div>
+    </a>
+  );
+}
+
+// Just the route from a maps app: start marker, drawn path, destination pin
+const ROUTE_PATH = "M40 118 C 70 112, 74 72, 108 66 S 158 90, 184 60 S 212 36, 222 34";
+
+function RouteMap({ from, to }) {
+  const drawIn = (delay = 0) => ({
+    initial: { pathLength: 0 },
+    whileInView: { pathLength: 1 },
+    viewport: { once: true },
+    transition: { duration: 1.4, delay, ease: transitionCurve }
+  });
+  const popIn = (delay) => ({
+    initial: { opacity: 0, y: 4 },
+    whileInView: { opacity: 1, y: 0 },
+    viewport: { once: true },
+    transition: { duration: 0.5, delay, ease: transitionCurve }
+  });
+
+  return (
+    <svg
+      viewBox="0 0 260 150"
+      preserveAspectRatio="xMidYMid slice"
+      className="w-full h-full"
+      role="img"
+      aria-label={`${from} to ${to}`}
+    >
+      {/* Route: soft casing underneath, bright line on top */}
+      <motion.path d={ROUTE_PATH} stroke="rgba(255,255,255,0.16)" strokeWidth="8" strokeLinecap="round" fill="none" {...drawIn()} />
+      <motion.path d={ROUTE_PATH} stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" fill="none" {...drawIn()} />
+
+      {/* Start marker */}
+      <circle cx="40" cy="118" r="5" fill="#0b0b0b" stroke="rgba(255,255,255,0.9)" strokeWidth="2" />
+      <text x="34" y="138" fill="rgba(255,255,255,0.55)" fontSize="8" letterSpacing="1.5">{from.toUpperCase()}</text>
+
+      {/* Destination pin */}
+      <motion.g {...popIn(1.3)}>
+        <path transform="translate(215 16)" fill="rgba(255,255,255,0.9)" d="M7 0C3.1 0 0 3.1 0 7c0 5.2 7 11 7 11s7-5.8 7-11c0-3.9-3.1-7-7-7zm0 9.6A2.6 2.6 0 1 1 7 4.4a2.6 2.6 0 0 1 0 5.2z" />
+        <text x="208" y="27" fill="rgba(255,255,255,0.55)" fontSize="8" letterSpacing="1.5" textAnchor="end">{to.toUpperCase()}</text>
+      </motion.g>
+    </svg>
+  );
+}
 
 export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
+  // Demo animations are heavy, so a card only mounts its webp while hovered
+  const [playingId, setPlayingId] = useState(null);
 
   useEffect(() => {
     if (selectedProject || isResumeOpen) {
@@ -186,7 +320,7 @@ export default function Portfolio() {
         </section>
 
         {/* Experience Section */}
-        <section id="experience" className="py-16 md:py-24 px-8 md:px-16 lg:px-24 xl:px-32">
+        <section id="experience" className="pt-16 md:pt-24 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
@@ -202,30 +336,30 @@ export default function Portfolio() {
               transition={{ duration: 0.8, ease: transitionCurve }}
               className="space-y-12 md:space-y-16 mb-20 md:mb-24"
             >
-              <div className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase">
-                      Apr 2022 — Jul 2023
-                    </span>
-                    <span className="text-white/20">•</span>
-                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
+              {/* Content on the left, the route line on the right (on top for phones) */}
+              <div className="flex flex-col-reverse md:flex-row md:items-center gap-5 md:gap-8 p-5 md:p-6 bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h3 className="text-base md:text-lg font-normal text-white tracking-tight leading-snug">
+                      Guardian Life
+                    </h3>
+                    <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-gray-400 uppercase whitespace-nowrap">
                       Software Engineer
                     </span>
                   </div>
-                  <h3 className="text-xl md:text-3xl font-light text-white tracking-tight mb-2">
-                    Guardian Life
-                  </h3>
-                  <p className="text-gray-400 font-light text-xs md:text-sm leading-relaxed max-w-xl">
+                  <p className="mt-2 text-gray-300 font-light text-xs md:text-sm leading-relaxed max-w-2xl">
                     Engineered robust backend microservices utilizing Java Spring Boot and Python FastAPI. Optimized complex database queries and pipelines, reducing latency by 30%.
                   </p>
+                  <p className="mt-2 text-[11px] md:text-xs text-gray-400 leading-relaxed">
+                    {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i, all) => (
+                      <React.Fragment key={tech}>
+                        <span className="whitespace-nowrap">{tech}{i < all.length - 1 && ' ·'}</span>{' '}
+                      </React.Fragment>
+                    ))}
+                  </p>
                 </div>
-                <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
-                  {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i) => (
-                    <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
-                      {tech}
-                    </span>
-                  ))}
+                <div className="w-full md:w-[260px] h-[150px] shrink-0">
+                  <RouteMap from="Apr 2022" to="Jul 2023" />
                 </div>
               </div>
             </motion.div>
@@ -238,45 +372,90 @@ export default function Portfolio() {
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
             </div>
             
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "100px" }} 
-              transition={{ duration: 0.8, ease: transitionCurve }}
-              className="space-y-6 md:space-y-8"
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "100px" }}
+              variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6"
             >
               {projectsData.map((project) => (
-                <div 
+                <motion.div
                   key={project.id}
+                  variants={fadeUp}
                   onClick={() => setSelectedProject(project)}
-                  className="py-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] active:scale-[0.98] md:active:scale-100 md:px-4 cursor-pointer transition-all duration-300 rounded-xl group"
+                  onMouseEnter={() => setPlayingId(project.id)}
+                  onMouseLeave={() => setPlayingId(null)}
+                  className="group relative flex flex-col overflow-hidden bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
                 >
-                  <div className="flex-1">
-                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase block mb-2">
-                      {project.category}
-                    </span>
-                    <h3 className="text-xl md:text-3xl font-light text-white tracking-tight mb-2 group-hover:translate-x-1 transition-transform duration-300">
-                      {project.title}
-                    </h3>
-                    <p className="text-gray-400 font-light text-xs md:text-sm leading-relaxed max-w-xl">
-                      {project.desc}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
-                    {project.tags.map((tag, i) => (
-                      <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
-                        {tag}
+                  {/* Media - still poster, demo animation plays on hover */}
+                  <div className="relative aspect-video overflow-hidden bg-zinc-900 border-b border-white/10">
+                    <img
+                      src={project.poster}
+                      alt={`${project.title} preview`}
+                      loading="lazy"
+                      className="absolute inset-0 w-full h-full object-cover grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700 ease-out"
+                    />
+                    {project.image && playingId === project.id && (
+                      <img
+                        src={project.image}
+                        alt={`${project.title} demo`}
+                        className="absolute inset-0 w-full h-full object-cover scale-[1.03]"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
+                    {project.image && (
+                      <span className="absolute top-4 left-4 flex items-center gap-2 text-[8px] md:text-[9px] tracking-[0.2em] uppercase text-white/80 px-2.5 py-1 bg-black/50 border border-white/15 rounded-full backdrop-blur-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/70 group-hover:bg-red-500 transition-colors duration-300"></span>
+                        <span className="hidden pointer-fine:inline">Hover to play</span>
+                        <span className="pointer-fine:hidden">Tap to play</span>
                       </span>
-                    ))}
+                    )}
                   </div>
-                </div>
+
+                  {/* Info strip - title and category on one line, tools as plain text */}
+                  <div className="flex flex-1 items-start justify-between gap-4 px-5 py-4 md:px-6">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h3 className="text-base md:text-lg font-normal text-white tracking-tight leading-snug">
+                          {project.title}
+                        </h3>
+                        <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-gray-400 uppercase">
+                          {project.category}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] md:text-xs text-gray-400 leading-relaxed">
+                        {/* Each tool stays whole; lines only break between tools */}
+                        {project.tags.map((tag, i) => (
+                          <React.Fragment key={tag}>
+                            <span className="whitespace-nowrap">{tag}{i < project.tags.length - 1 && ' ·'}</span>{' '}
+                          </React.Fragment>
+                        ))}
+                      </p>
+                    </div>
+                    <a href={project.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 mt-1 text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-gray-400 hover:text-white transition-colors duration-300">
+                      GitHub ↗
+                    </a>
+                  </div>
+                </motion.div>
               ))}
+            </motion.div>
+
+            {/* GitHub contribution heatmap */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "100px" }}
+              transition={{ duration: 0.8, ease: transitionCurve }}
+              className="mt-4 md:mt-6"
+            >
+              <ContributionHeatmap />
             </motion.div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="py-24 md:py-32 px-8 md:px-16 lg:px-24 xl:px-32 flex flex-col items-center justify-center text-center">
+        <footer className="pt-16 md:pt-20 pb-24 md:pb-32 px-8 md:px-16 lg:px-24 xl:px-32 flex flex-col items-center justify-center text-center">
           <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-4 drop-shadow-md">Available for Fall 2026 roles</p>
           <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="text-2xl md:text-4xl text-white font-light hover:text-gray-300 active:scale-95 transition-all duration-300 pb-12 drop-shadow-lg">
             Let's talk.
@@ -377,7 +556,7 @@ export default function Portfolio() {
                 </svg>
               </button>
 
-              {selectedProject.image ? (
+              {(selectedProject.image || selectedProject.poster) ? (
                 <a 
                   href={selectedProject.link} 
                   target="_blank" 
@@ -386,7 +565,7 @@ export default function Portfolio() {
                   className="block w-full h-auto cursor-pointer group"
                 >
                   <img 
-                    src={selectedProject.image} 
+                    src={selectedProject.image || selectedProject.poster} 
                     alt={selectedProject.title} 
                     className="w-full h-auto rounded-xl md:rounded-3xl shadow-2xl border border-white/10 group-hover:border-white/30 group-hover:scale-[1.01] transition-all duration-500 ease-out object-cover md:object-contain bg-zinc-900/50"
                   />
