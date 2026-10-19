@@ -90,6 +90,15 @@ To execute the precise, brutalist "Awwwards" UI vision of this portfolio rapidly
 
 ---
 
+### ✦ Deployment
+
+The live site deploys itself. Every push to `main` (in practice, merging the `develop` → `main` PR) runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which installs with `npm ci`, builds with `npm run build` on Node 24, and publishes `dist/` to GitHub Pages. Progress shows up in the **Actions** tab.
+
+*   **Redeploy without a new commit:** Actions → **Deploy to GitHub Pages** → **Run workflow** (or `gh workflow run deploy.yml --ref main`).
+*   **Manual fallback:** `npm run deploy` still builds and pushes `dist/` to the `gh-pages` branch, but the site only serves that branch if Settings → Pages → Source is switched back to **Deploy from a branch**.
+
+---
+
 ### 📊 GitHub Activity
 
 <!-- Nee intha area-la unoda dynamic charts codes or images place paniko blazing machi -->
