@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+/* Page ground. It lives on <body> so the character-field canvas (fixed, z-index 0) paints over it,
+   while the app content (relative, z-10) sits above the canvas. */
+body {
+  background: #000;
+}

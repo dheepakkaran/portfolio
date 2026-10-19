@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import profilePic from './profile.jpeg'; 
+import './vendor/character-field.js';
 
 const transitionCurve = [0.22, 1, 0.36, 1]; 
 
@@ -441,11 +442,83 @@ function ProjectCarousel({ children, label }) {
   );
 }
 
+// Background: a field of characters that brightens under the cursor and decodes into
+// words from the work on this page. Ceilings come from character-field's ceiling.mjs for
+// this blue palette (#000 ground, text from white down to gray-400) so text stays above WCAG AA.
+// Words from the work on this page that surface under the cursor
+const FIELD_WORDS = [
+  'langgraph', 'root cause', 'guardrails', 'human in the loop', 'mcp', 'observability',
+  'circuit breaker', 'retry storm', 'token bomb', 'dynamodb', 'aws lambda', 'eventbridge',
+  'kafka', 'spring boot', 'fastapi', 'postgresql', 'docker', 'github actions',
+  'expected goals', 'xgboost', 'sentence transformers', 'pattern recognition',
+  'computer vision', 'large language models', 'mlops', 'backend', 'scalable'
+];
+
+// Ceilings come from character-field's ceiling.mjs for this blue palette (#000 ground,
+// text from white down to gray-400) so text stays above WCAG AA.
+const FIELD_OPTIONS = {
+  glyph: '#4c7bd9',
+  accent: '#6ea8ff',
+  ceiling: 0.42,
+  accentCeiling: 0.31,
+  lexicon: FIELD_WORDS,
+  // Water: a mouse click on empty background drops into a simulated water surface (a damped
+  // 2D wave equation). One thin ring travels slowly across the whole page and stays clearly
+  // visible out to the edges; behind it the water is damped hard so the centre settles in ~1s.
+  // Crests light the characters like the cursor glow, troughs darken them; calm again in ~4s.
+  // Never on buttons, links, cards or the carousel, and never on touch swipes.
+  water: true,
+  waterSteps: 1.5,
+  waterDamping: 0.997,
+  waterSponge: 4,
+  // a narrow, slightly taller drop and a short trail make one thin (~40px) ring instead of two thick ones
+  waterDrop: 9,
+  waterRadius: 5,
+  waterWake: 0.8,
+  waterTrail: 6,
+  rippleMouseOnly: true,
+  rippleIgnore: 'a, button, input, textarea, select, label, [role="button"], [role="region"], [tabindex], .cursor-pointer'
+};
+
 export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
   // Demo animations are heavy, so a card only mounts its webp while hovered
   const [playingId, setPlayingId] = useState(null);
+
+  useEffect(() => {
+    // Phones and low-power devices: fewer re-rolls and no fine cloud detail. Same look, less CPU.
+    const lowPower = window.matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 8) <= 4;
+    const field = window.CharacterField.create({ ...FIELD_OPTIONS, rerollRate: lowPower ? 0.010 : 0.015, maskDetail: lowPower ? 0 : 5 });
+    if (!field) return undefined;
+    field.canvas.style.transition = 'opacity 0.8s ease';
+
+    // Full strength in the hero, calmer once the reading sections reach the middle of the screen
+    let inHero = null;
+    const update = () => {
+      const next = document.querySelector('#education');
+      const hero = !next || next.getBoundingClientRect().top > window.innerHeight * 0.5;
+      if (hero === inHero) return;
+      inHero = hero;
+      field.canvas.style.opacity = hero ? '1' : '0.6';
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; update(); });
+    };
+
+    update();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      field.destroy();
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedProject || isResumeOpen) {
@@ -459,24 +532,8 @@ export default function Portfolio() {
   }, [selectedProject, isResumeOpen]);
 
   return (
-    <div className="bg-black text-gray-200 min-h-screen font-sans selection:bg-gray-200 selection:text-black overflow-x-hidden relative scroll-smooth">
+    <div className="text-gray-200 min-h-screen font-sans selection:bg-gray-200 selection:text-black overflow-x-hidden relative scroll-smooth">
       
-      {/* Background Video - ULTIMATE PERFORMANCE FIX FOR ZERO LAG */}
-      <div className="fixed inset-0 w-full h-full z-0 bg-black pointer-events-none">
-        <video 
-          autoPlay
-          loop
-          muted 
-          playsInline
-          className="w-full h-full object-cover"
-          style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
-        >
-          <source src="./bg-video.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-black/65"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/90"></div>
-      </div>
-
       <div className="relative z-10">
         
         {/* Navigation - Adjusted padding for better breathing room */}
