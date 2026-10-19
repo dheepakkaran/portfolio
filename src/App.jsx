@@ -35,7 +35,8 @@ const projectsData = [
     category: "Agentic AI & AIOps",
     tags: ["LangGraph", "Python", "MCP", "Groq", "Streamlit"],
     poster: "./projects/incident-triage-poster.jpg",
-    image: "./projects/incident-triage.webp",
+    video: "./projects/incident-triage.mp4",
+    videoSmall: "./projects/incident-triage-720.mp4",
     link: "https://github.com/dheepakkaran/incident-triage-agent"
   },
   {
@@ -44,7 +45,8 @@ const projectsData = [
     category: "Serverless Infrastructure",
     tags: ["AWS Lambda", "DynamoDB", "Python", "EventBridge", "Telegram"],
     poster: "./projects/llm-gateway-poster.jpg",
-    image: "./projects/llm-gateway.webp",
+    video: "./projects/llm-gateway.mp4",
+    videoSmall: "./projects/llm-gateway-720.mp4",
     link: "https://github.com/dheepakkaran/llm-gateway"
   },
   {
@@ -53,7 +55,8 @@ const projectsData = [
     category: "Automation",
     tags: ["Python", "GitHub Actions", "Gemini", "Telegram Bot"],
     poster: "./projects/leetbot-poster.jpg",
-    image: "./projects/leetbot.webp",
+    video: "./projects/leetbot.mp4",
+    videoSmall: "./projects/leetbot-720.mp4",
     link: "https://github.com/dheepakkaran/leetbot"
   },
   {
@@ -62,7 +65,8 @@ const projectsData = [
     category: "Sports Analytics & NLP",
     tags: ["Python", "Sentence Transformers", "XGBoost", "scikit-learn"],
     poster: "./projects/xg-from-words-poster.jpg",
-    image: "./projects/xg-from-words.webp",
+    video: "./projects/xg-from-words.mp4",
+    videoSmall: "./projects/xg-from-words-720.mp4",
     link: "https://github.com/dheepakkaran/xg-from-words"
   }
 ];
@@ -527,10 +531,79 @@ const FIELD_OPTIONS = {
   rippleIgnore: 'a, button, input, textarea, select, label, [role="button"], [role="region"], [tabindex], .cursor-pointer'
 };
 
+// Desktop card hover: the demo video mounts only while the card is hovered and fades in over the
+// cover once frames are actually playing, so there is no black flash while it buffers.
+function CardDemo({ src, title }) {
+  const [ready, setReady] = useState(false);
+  return (
+    <video
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      aria-label={`${title} demo`}
+      onPlaying={() => setReady(true)}
+      className={`absolute inset-0 w-full h-full object-cover scale-[1.03] transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
+    />
+  );
+}
+
+// Preview demo: the cover shows at once, a quiet spinner appears only if loading takes a moment, and
+// the video fades in once it plays. Phones get the 720px file. If autoplay is refused (iOS Low Power
+// Mode) or the reader prefers reduced motion, a play button is shown instead.
+function DemoVideo({ project }) {
+  const videoRef = useRef(null);
+  const [src] = useState(() => (window.matchMedia('(max-width: 767px)').matches ? project.videoSmall : project.video));
+  const [autoPlay] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const [status, setStatus] = useState(autoPlay ? 'loading' : 'paused');
+
+  const play = () => {
+    setStatus('loading');
+    videoRef.current?.play().catch(() => setStatus('paused'));
+  };
+
+  return (
+    <div className="relative w-full aspect-video overflow-hidden rounded-xl md:rounded-3xl shadow-2xl border border-white/10 bg-zinc-900">
+      <img src={project.poster} alt={project.title} className="absolute inset-0 w-full h-full object-cover" />
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay={autoPlay}
+        muted
+        loop
+        playsInline
+        preload={autoPlay ? 'auto' : 'metadata'}
+        aria-label={`${project.title} demo`}
+        onCanPlay={(e) => { if (autoPlay && e.currentTarget.paused) play(); }}
+        onPlaying={() => setStatus('playing')}
+        onError={() => setStatus('error')}
+        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${status === 'playing' ? 'opacity-100' : 'opacity-0'}`}
+      />
+      {status === 'loading' && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-300 delay-300 starting:opacity-0">
+          <span className="w-7 h-7 rounded-full border-2 border-white/15 border-t-white/70 animate-spin"></span>
+        </div>
+      )}
+      {status === 'paused' && (
+        <button
+          onClick={play}
+          aria-label="Play demo"
+          className="absolute inset-0 m-auto w-14 h-14 rounded-full bg-black/50 border border-white/25 hover:bg-white hover:text-black flex items-center justify-center transition-colors duration-300 cursor-pointer backdrop-blur-md"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z"></path>
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [isResumeOpen, setIsResumeOpen] = useState(false);
-  // Demo animations are heavy, so a card only mounts its webp while hovered
+  // Demo videos only play on a mouse hover; touch cards stay on the cover and play in the preview
   const [playingId, setPlayingId] = useState(null);
 
   useEffect(() => {
@@ -796,11 +869,11 @@ export default function Portfolio() {
                   key={project.id}
                   variants={fadeUp}
                   onClick={() => setSelectedProject(project)}
-                  onMouseEnter={() => setPlayingId(project.id)}
-                  onMouseLeave={() => setPlayingId(null)}
+                  onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPlayingId(project.id); }}
+                  onPointerLeave={() => setPlayingId(null)}
                   className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
                 >
-                  {/* Media - still poster, demo animation plays on hover */}
+                  {/* Media - still poster, demo video plays on mouse hover */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-900 border-b border-white/10">
                     <img
                       src={project.poster}
@@ -808,15 +881,11 @@ export default function Portfolio() {
                       loading="lazy"
                       className="absolute inset-0 w-full h-full object-cover grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-[1.03] transition-all duration-700 ease-out"
                     />
-                    {project.image && playingId === project.id && (
-                      <img
-                        src={project.image}
-                        alt={`${project.title} demo`}
-                        className="absolute inset-0 w-full h-full object-cover scale-[1.03]"
-                      />
+                    {project.video && playingId === project.id && (
+                      <CardDemo src={project.video} title={project.title} />
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
-                    {project.image && (
+                    {project.video && (
                       <span className="absolute top-4 left-4 flex items-center gap-2 text-[8px] md:text-[9px] tracking-[0.2em] uppercase text-white/80 px-2.5 py-1 bg-black/50 border border-white/15 rounded-full backdrop-blur-md">
                         <span className="w-1.5 h-1.5 rounded-full bg-white/70 group-hover:bg-red-500 transition-colors duration-300"></span>
                         <span className="hidden pointer-fine:inline">Hover to play</span>
@@ -942,12 +1011,13 @@ export default function Portfolio() {
       <AnimatePresence>
         {selectedProject && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 md:p-8">
+            {/* A full-screen blur over the moving background is costly on phones, so touch gets a plain dim */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-pointer"
+              className="absolute inset-0 bg-black/85 pointer-fine:bg-black/70 pointer-fine:backdrop-blur-md cursor-pointer"
               onClick={() => setSelectedProject(null)}
             />
             <motion.div
@@ -957,33 +1027,40 @@ export default function Portfolio() {
               exit="exit"
               className="relative w-full max-w-5xl z-10"
             >
-              <button 
-                onClick={() => setSelectedProject(null)}
-                className="absolute top-4 right-4 md:-top-14 md:right-0 w-10 h-10 rounded-full bg-black/50 md:bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 z-20 hover:rotate-90 cursor-pointer backdrop-blur-md"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-
-              {(selectedProject.image || selectedProject.poster) ? (
-                <a 
-                  href={selectedProject.link} 
-                  target="_blank" 
+              {/* Top bar: GitHub and close sit above the demo on every screen size, so nothing covers it */}
+              <div className="absolute -top-12 md:-top-14 right-0 z-20 flex items-center gap-2">
+                <a
+                  href={selectedProject.link}
+                  target="_blank"
                   rel="noopener noreferrer"
-                  title="View Project Repository"
-                  className="block w-full h-auto cursor-pointer group"
+                  aria-label="View on GitHub"
+                  title="View on GitHub"
+                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 backdrop-blur-md"
                 >
-                  <img 
-                    src={selectedProject.image || selectedProject.poster} 
-                    alt={selectedProject.title} 
-                    className="w-full h-auto rounded-xl md:rounded-3xl shadow-2xl border border-white/10 group-hover:border-white/30 group-hover:scale-[1.01] transition-all duration-500 ease-out object-cover md:object-contain bg-zinc-900/50"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-black/40 rounded-xl md:rounded-3xl">
-                     <span className="text-white text-xs tracking-widest uppercase border border-white px-4 py-2 bg-black/50 backdrop-blur-sm">View on GitHub</span>
-                  </div>
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                  </svg>
                 </a>
+                <button
+                  onClick={() => setSelectedProject(null)}
+                  aria-label="Close preview"
+                  className="w-10 h-10 rounded-full bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 hover:rotate-90 cursor-pointer backdrop-blur-md"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+
+              {selectedProject.video ? (
+                <DemoVideo key={selectedProject.id} project={selectedProject} />
+              ) : selectedProject.poster ? (
+                <img
+                  src={selectedProject.poster}
+                  alt={selectedProject.title}
+                  className="w-full h-auto rounded-xl md:rounded-3xl shadow-2xl border border-white/10 object-cover md:object-contain bg-zinc-900/50"
+                />
               ) : (
                 <div className="w-full aspect-video bg-zinc-900 border border-white/10 rounded-xl md:rounded-3xl flex items-center justify-center">
                   <p className="text-gray-500 text-xs md:text-sm tracking-[0.2em] uppercase text-center px-4">Image Not Available</p>
