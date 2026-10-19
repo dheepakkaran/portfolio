@@ -97,6 +97,17 @@
     waterWake: 1,              // extra damping per step behind each drop's outer rings (1 = off)
     waterTrail: 12,            // cells of rings kept behind the front before the wake damping starts
     waterSpeed: 0.707,         // front speed in cells per step (this scheme's wave speed is 1/sqrt 2)
+    waterTap: false,           // true: touch and pen drop on a quick tap (not on swipes, which start the same way)
+    tapWord: false,            // true: a tap also decodes one word where it lands
+    stableHeight: false,       // true: size to the full (100vh) height and ignore height-only resizes,
+                               // which mobile browsers fire while scrolling as the address bar hides
+    ambientWords: 0,           // words kept on screen at all times, typed in slowly (0 = off)
+    ambientEvery: 700,         // ms between new ambient words while there are fewer than that
+    ambientLexicon: null,      // their words; defaults to lexicon
+    ambientLife: 6500,         // ms each ambient letter lives (fades in over 12%, out over 28%)
+    ambientCharStep: 110,      // ms between letters as a word types in (and dissolves)
+    ambientScramble: 650,      // ms each letter flickers through random characters before it settles
+    ambientStrength: 0.8,      // ambient brightness relative to cursor words
 
     /* ── theming ──────────────────────────────────────────────────── */
     /* read these CSS custom properties off <html> when they are set, so
@@ -123,8 +134,9 @@
 
     var canvas = document.createElement('canvas');
     canvas.setAttribute('aria-hidden', 'true');
-    canvas.style.cssText =
-      'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:' + o.zIndex;
+    canvas.style.cssText = o.stableHeight
+      ? 'position:fixed;left:0;top:0;width:100%;height:100vh;pointer-events:none;z-index:' + o.zIndex   /* local addition (portfolio) */
+      : 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:' + o.zIndex;
     host.appendChild(canvas);
 
     var view = canvas.getContext('2d', { alpha: true });
@@ -135,7 +147,7 @@
     var raf = 0, last = 0, t0 = now(), onScreen = true, dead = false;
 
     var px = -9999, py = -9999, pPrevX = -9999, pPrevY = -9999, pMoved = -9999;
-    var rings = [], lastSpawn = 0;
+    var rings = [], lastSpawn = 0, lastAmbient = 0;
     var decoded = new Map(), words = [];
 
     function now() { return (window.performance || Date).now(); }
@@ -361,8 +373,10 @@
       if (d) {
         var e = envelope(t - d.born, d.life);
         if (e > 0) {
-          view.fillStyle = styleFor(1, o.accentCeiling * clamp(e, 0, 1));
-          view.fillText(d.ch, x, y + cellH * 0.5);
+          /* local addition (portfolio): ambient letters flicker through random characters first */
+          var ch = d.scr && t - d.born < d.scr ? pickChar() : d.ch;
+          view.fillStyle = styleFor(1, o.accentCeiling * clamp(e, 0, 1) * (d.k || 1));
+          view.fillText(ch, x, y + cellH * 0.5);
           return;
         }
       }
@@ -432,9 +446,12 @@
     }
 
     /* ── decode ───────────────────────────────────────────────────── */
-    function spawnWord(cx, cy, t, spread) {
-      if (!o.decode || !o.lexicon.length || words.length >= o.decodeMax) return;
-      var text = o.lexicon[(Math.random() * o.lexicon.length) | 0];
+    /* local addition (portfolio): `a` = { list, life, step, scr, k } for ambient words */
+    function spawnWord(cx, cy, t, spread, a) {
+      var list = (a && a.list) || o.lexicon;
+      if (!o.decode || !list.length || words.length >= o.decodeMax) return;
+      var text = list[(Math.random() * list.length) | 0];
+      var life = a ? a.life : o.decodeLife, step = a ? a.step : 26;
       var len = text.length, j;
       if (len >= cols - 2) return;
       var row = clamp(((cy + rand(-spread, spread)) / cellH) | 0, 0, rows - 1);
@@ -442,8 +459,8 @@
       var base = row * cols + col;
       for (j = 0; j < len; j++) if (decoded.has(base + j)) return;
       for (j = 0; j < len; j++)
-        decoded.set(base + j, { ch: text[j], born: t + j * 26, life: o.decodeLife });
-      words.push({ base: base, len: len, born: t, life: o.decodeLife + len * 26 });
+        decoded.set(base + j, { ch: text[j], born: t + j * step, life: life, scr: a ? a.scr : 0, k: a ? a.k : 1 });
+      words.push({ base: base, len: len, born: t, life: life + len * step, ambient: !!a });
     }
 
     function updateWords(t) {
@@ -510,6 +527,21 @@
         }
       }
 
+      /* local addition (portfolio): ambient words. Keep a few on screen at all times, each typed
+         in slowly and dissolving slowly, like a script running in the background. Kept off the
+         vignetted edges. */
+      if (o.ambientWords > 0 && t - lastAmbient > o.ambientEvery) {
+        var amb = 0;
+        for (var q = 0; q < words.length; q++) if (words[q].ambient) amb++;
+        if (amb < o.ambientWords) {
+          lastAmbient = t;
+          spawnWord(rand(0.06, 0.94) * w, rand(0.1, 0.9) * h, t, 0, {
+            list: o.ambientLexicon || o.lexicon, life: o.ambientLife, step: o.ambientCharStep,
+            scr: o.ambientScramble, k: o.ambientStrength
+          });
+        }
+      }
+
       if (rings.length) {
         rings = rings.filter(function (r) { return t - r.t < o.rippleLife; });
         for (var i = 0; i < rings.length; i++) {
@@ -540,6 +572,7 @@
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       w = window.innerWidth; h = window.innerHeight;
+      if (o.stableHeight) h = Math.max(h, canvas.clientHeight || 0);   /* local addition (portfolio) */
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       view.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -567,6 +600,7 @@
     /* ── listeners. The canvas is pointer-events:none and these sit on
        the window, so nothing underneath ever loses a click. ── */
     var onMove, onDown, onLeave, onBlur, onResize, onVis, io, rt = 0;
+    var onUp, onCancel, tapStart = null;   /* local addition (portfolio): touch taps */
 
     if (o.pointer) {
       onMove = function (e) { px = e.clientX; py = e.clientY; pMoved = now(); };
@@ -579,9 +613,13 @@
     if (o.ripple) {
       onDown = function (e) {
         if (reduced.matches) return;
-        /* local addition (portfolio): skip touch presses and presses on interactive elements */
-        if (o.rippleMouseOnly && e.pointerType && e.pointerType !== 'mouse') return;
+        /* local addition (portfolio): skip presses on interactive elements; a touch or pen press
+           only becomes a drop if it ends as a quick tap (see onUp), so scrolling never ripples */
         if (o.rippleIgnore && e.target && e.target.closest && e.target.closest(o.rippleIgnore)) return;
+        if (e.pointerType && e.pointerType !== 'mouse') {
+          if (o.water && o.waterTap) tapStart = { id: e.pointerId, x: e.clientX, y: e.clientY, t: now() };
+          if (o.rippleMouseOnly || (o.water && o.waterTap)) return;
+        }
         px = e.clientX; py = e.clientY;
         var t = now(); pMoved = t;
         /* local addition (portfolio): a drop into the water replaces the ring and its words */
@@ -591,9 +629,29 @@
         spawnWord(e.clientX, e.clientY, t, 30);
       };
       window.addEventListener('pointerdown', onDown, { passive: true });
+
+      /* local addition (portfolio): a tap is a short press that barely moved; when the browser
+         turns a press into a scroll it fires pointercancel, which drops the candidate */
+      onUp = function (e) {
+        var s0 = tapStart; tapStart = null;
+        if (!s0 || e.pointerId !== s0.id || reduced.matches) return;
+        var dx = e.clientX - s0.x, dy = e.clientY - s0.y;
+        if (dx * dx + dy * dy > 100 || now() - s0.t > 350) return;
+        waterDrop(e.clientX, e.clientY);
+        if (o.tapWord) spawnWord(e.clientX, e.clientY, now(), 30);
+      };
+      onCancel = function () { tapStart = null; };
+      window.addEventListener('pointerup', onUp, { passive: true });
+      window.addEventListener('pointercancel', onCancel, { passive: true });
     }
 
-    onResize = function () { clearTimeout(rt); rt = setTimeout(resize, 200); };
+    onResize = function () {
+      /* local addition (portfolio): with stableHeight, an address bar hiding or showing changes only
+         innerHeight; the 100vh canvas keeps its size, so there is nothing to rebuild (and the water
+         and words survive the scroll) */
+      if (o.stableHeight && window.innerWidth === w && Math.max(window.innerHeight, canvas.clientHeight || 0) === h) return;
+      clearTimeout(rt); rt = setTimeout(resize, 200);
+    };
     window.addEventListener('resize', onResize, { passive: true });
 
     onVis = function () { document.hidden ? stop() : start(); };
@@ -636,7 +694,11 @@
           document.removeEventListener('pointerleave', onLeave);
           window.removeEventListener('blur', onBlur);
         }
-        if (o.ripple) window.removeEventListener('pointerdown', onDown);
+        if (o.ripple) {
+          window.removeEventListener('pointerdown', onDown);
+          window.removeEventListener('pointerup', onUp);
+          window.removeEventListener('pointercancel', onCancel);
+        }
         window.removeEventListener('resize', onResize);
         document.removeEventListener('visibilitychange', onVis);
         if (io) io.disconnect();

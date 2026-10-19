@@ -454,6 +454,15 @@ const FIELD_WORDS = [
   'computer vision', 'large language models', 'mlops', 'backend', 'scalable'
 ];
 
+// Always-on background lines on phones: terminal and binary snippets mixed with project words,
+// so the field reads like a script quietly running behind the page
+const AMBIENT_WORDS = [
+  '$ deploy --prod', '[ok] build passed', 'kafka.consume()', 'GET /api 200', '0x1f4a9c', '10110010',
+  'retry=3', 'langgraph.run()', 'status: healthy', 'p95 42ms', 'root cause found',
+  'circuit breaker: open', 'docker compose up', 'git push origin main', 'curl -X POST',
+  '>> tokens: 4096', 'mlops pipeline ok', 'expected goals 0.78', '01001011', 'fastapi --reload'
+];
+
 // Ceilings come from character-field's ceiling.mjs for this blue palette (#000 ground,
 // text from white down to gray-400) so text stays above WCAG AA.
 const FIELD_OPTIONS = {
@@ -466,8 +475,10 @@ const FIELD_OPTIONS = {
   // 2D wave equation). One thin ring travels slowly across the whole page and stays clearly
   // visible out to the edges; behind it the water is damped hard so the centre settles in ~1s.
   // Crests light the characters like the cursor glow, troughs darken them; calm again in ~4s.
-  // Never on buttons, links, cards or the carousel, and never on touch swipes.
+  // Never on buttons, links, cards or the carousel. On phones a quick tap drops in;
+  // swipes and scrolls never do.
   water: true,
+  waterTap: true,
   waterSteps: 1.5,
   waterDamping: 0.997,
   waterSponge: 4,
@@ -488,8 +499,22 @@ export default function Portfolio() {
 
   useEffect(() => {
     // Phones and low-power devices: fewer re-rolls and no fine cloud detail. Same look, less CPU.
-    const lowPower = window.matchMedia('(pointer: coarse)').matches || (navigator.hardwareConcurrency || 8) <= 4;
-    const field = window.CharacterField.create({ ...FIELD_OPTIONS, rerollRate: lowPower ? 0.010 : 0.015, maskDetail: lowPower ? 0 : 5 });
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    const lowPower = touch || (navigator.hardwareConcurrency || 8) <= 4;
+    const field = window.CharacterField.create({
+      ...FIELD_OPTIONS,
+      rerollRate: lowPower ? 0.010 : 0.015,
+      maskDetail: lowPower ? 0 : 5,
+      // Touch screens have no cursor to decode under, so there ~5 script-style lines are always on
+      // screen, each typing in slowly (letters scramble, then settle) and dissolving slowly, and a
+      // tap shows a word where it lands. Desktop stays cursor-only.
+      // phones resize while scrolling (address bar); keep the field, waves and words through it
+      stableHeight: true,
+      ambientWords: touch ? 5 : 0,
+      ambientLexicon: AMBIENT_WORDS,
+      decodeMax: 16,
+      tapWord: touch
+    });
     if (!field) return undefined;
     field.canvas.style.transition = 'opacity 0.8s ease';
 
