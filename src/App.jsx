@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import profilePic from './profile.jpeg'; 
 
@@ -66,6 +66,16 @@ const projectsData = [
   }
 ];
 
+const educationData = [
+  {
+    school: "Northeastern University",
+    degree: "MS, Electrical & Computer Engineering",
+    period: "2026 — May 2028",
+    summary: "Concentration in Machine Learning, Computer Vision & Algorithms. CGPA 3.926 / 4.0.",
+    coursework: ["ML & Pattern Recognition", "Computer Engineering", "Large Language Models", "MLOps"]
+  }
+];
+
 const GITHUB_USER = "dheepakkaran";
 // Public mirror of the GitHub contribution calendar (no token needed)
 const CONTRIBUTIONS_URL = `https://github-contributions-api.jogruber.de/v4/${GITHUB_USER}?y=last`;
@@ -77,9 +87,32 @@ const MONTHS_SHOWN = 6;
 
 const toLocalDate = (isoDate) => new Date(`${isoDate}T00:00:00`);
 
+// Hover easter egg: a snake (like the GitHub profile "snk" animation) eats the contribution cells.
+// It heads for the square under the cursor; when the cursor rests it hunts the nearest green square itself.
+const SNAKE_LENGTH = 6;
+const SNAKE_TICK_MS = 45;
+// The cursor counts as resting after this many snake steps (~0.7s) without moving
+const CURSOR_IDLE_TICKS = 15;
+const snakeShades = ["bg-white", "bg-white/80", "bg-white/60", "bg-white/45", "bg-white/30", "bg-white/20"];
+const cellKey = ([w, d]) => `${w}-${d}`;
+const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
 function ContributionHeatmap() {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
+  // { body: [[week, day], ...] head first, eaten: Set } while the snake is out, null otherwise
+  const [snake, setSnake] = useState(null);
+  const sim = useRef(null);
+  const cursor = useRef({ cell: null, idle: 0 });
+  const timers = useRef({ interval: null, timeouts: [] });
+  const hovering = useRef(false);
+
+  const clearTimers = () => {
+    clearInterval(timers.current.interval);
+    timers.current.timeouts.forEach(clearTimeout);
+    timers.current = { interval: null, timeouts: [] };
+  };
+  useEffect(() => clearTimers, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,15 +156,114 @@ function ContributionHeatmap() {
 
   const gridColumns = { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` };
 
+  const finishSnake = () => {
+    clearInterval(timers.current.interval);
+    sim.current = null;
+    // Leave the eaten grid for a beat, let it grow back, then go again while still hovered
+    setSnake((prev) => prev && { body: [], eaten: prev.eaten });
+    timers.current.timeouts.push(setTimeout(() => {
+      setSnake(null);
+      if (hovering.current) timers.current.timeouts.push(setTimeout(runSnake, 1200));
+    }, 900));
+  };
+
+  const tickSnake = () => {
+    const s = sim.current;
+    if (!s) return;
+    const cols = columns.length;
+    const [hw, hd] = s.body[0];
+    const remaining = [...s.greens].filter((k) => !s.eaten.has(k)).map((k) => k.split("-").map(Number));
+    const exiting = remaining.length === 0;
+
+    // Target: off the right edge when done, else the cursor's square, else the nearest green square
+    let target;
+    const c = cursor.current;
+    c.idle += 1;
+    if (exiting) {
+      target = [cols + SNAKE_LENGTH, hd];
+    } else if (c.cell && c.idle < CURSOR_IDLE_TICKS && cellKey(c.cell) !== cellKey([hw, hd])) {
+      target = c.cell;
+    } else {
+      target = remaining.reduce((best, cell) => {
+        const dist = Math.abs(cell[0] - hw) + Math.abs(cell[1] - hd);
+        const bestDist = Math.abs(best[0] - hw) + Math.abs(best[1] - hd);
+        return dist < bestDist || (dist === bestDist && cell[0] < best[0]) ? cell : best;
+      });
+    }
+
+    // One square per tick: prefer the axis with the bigger gap, never fold back onto the neck,
+    // and avoid the rest of the body when there is another way
+    const dw = target[0] - hw;
+    const dd = target[1] - hd;
+    const preferred = [];
+    const horizontal = dw !== 0 ? [Math.sign(dw), 0] : null;
+    const vertical = dd !== 0 ? [0, Math.sign(dd)] : null;
+    (Math.abs(dw) >= Math.abs(dd) ? [horizontal, vertical] : [vertical, horizontal]).forEach((m) => m && preferred.push(m));
+    const candidates = [...preferred, ...DIRECTIONS.filter((m) => !preferred.some((p) => p[0] === m[0] && p[1] === m[1]))]
+      .map(([mw, md]) => [hw + mw, hd + md])
+      .filter(([w, d]) => d >= 0 && d < 7 && w >= 0 && (exiting || w < cols))
+      .filter((cell) => !s.body[1] || cellKey(cell) !== cellKey(s.body[1]));
+    const bodyKeys = new Set(s.body.map(cellKey));
+    const next = candidates.find((cell) => !bodyKeys.has(cellKey(cell))) ?? candidates[0];
+    if (!next) return;
+
+    s.body = [next, ...s.body].slice(0, SNAKE_LENGTH);
+    if (s.greens.has(cellKey(next))) s.eaten.add(cellKey(next));
+    if (exiting && s.body.every(([w]) => w >= cols)) {
+      finishSnake();
+      return;
+    }
+    setSnake({ body: s.body, eaten: new Set(s.eaten) });
+  };
+
+  const runSnake = () => {
+    const greens = new Set();
+    columns.forEach((week, w) => week.forEach((day, d) => { if (day?.level > 0) greens.add(cellKey([w, d])); }));
+    if (!greens.size) return;
+    // Enter from the left edge, on the cursor's row when there is one
+    const head = [0, cursor.current.cell?.[1] ?? 3];
+    sim.current = { body: [head], eaten: new Set(greens.has(cellKey(head)) ? [cellKey(head)] : []), greens };
+    setSnake({ body: sim.current.body, eaten: new Set(sim.current.eaten) });
+    timers.current.interval = setInterval(tickSnake, SNAKE_TICK_MS);
+  };
+  const startSnake = () => {
+    hovering.current = true;
+    if (!data || snake || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    runSnake();
+  };
+  const stopSnake = () => {
+    hovering.current = false;
+    cursor.current = { cell: null, idle: 0 };
+    clearTimers();
+    sim.current = null;
+    setSnake(null);
+  };
+  const trackCursor = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const w = Math.floor(((e.clientX - rect.left) / rect.width) * columns.length);
+    const d = Math.floor(((e.clientY - rect.top) / rect.height) * 7);
+    cursor.current = {
+      cell: [Math.min(Math.max(w, 0), columns.length - 1), Math.min(Math.max(d, 0), 6)],
+      idle: 0
+    };
+  };
+
+  const snakeBody = new Map();
+  if (snake) {
+    for (let i = snake.body.length - 1; i >= 0; i--) snakeBody.set(cellKey(snake.body[i]), i);
+  }
+
   return (
     <a
       href={`https://github.com/${GITHUB_USER}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`GitHub contributions for ${GITHUB_USER}`}
-      className="group block w-full max-w-xl mx-auto p-5 md:p-6 bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 transition-[background-color,border-color,translate] duration-500"
+      onMouseEnter={startSnake}
+      onMouseLeave={stopSnake}
+      className="block w-full max-w-[320px]"
     >
-      <div className="grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 ease-out">
+      <div>
         <div className="grid gap-[2px] md:gap-[3px] h-4 mb-1.5" style={gridColumns}>
           {monthLabels.map((label, i) => (
             <span key={i} className="text-[9px] md:text-[10px] leading-4 text-gray-500 whitespace-nowrap">
@@ -139,15 +271,24 @@ function ContributionHeatmap() {
             </span>
           ))}
         </div>
-        <div className="grid grid-flow-col grid-rows-7 gap-[2px] md:gap-[3px]" style={gridColumns}>
+        <div className="grid grid-flow-col grid-rows-7 gap-[2px] md:gap-[3px]" style={gridColumns} onMouseMove={trackCursor}>
           {columns.flatMap((week, w) =>
             Array.from({ length: 7 }, (_, d) => {
               const day = week[d];
-              const shade = !data ? `${heatLevels[0]} animate-pulse` : day ? heatLevels[day.level] : "bg-transparent";
+              const key = `${w}-${d}`;
+              const segment = snakeBody.get(key);
+              // Snake cells switch instantly; everything else fades, which leaves a short trail
+              const shade = !data
+                ? `${heatLevels[0]} animate-pulse`
+                : segment !== undefined
+                  ? snakeShades[segment]
+                  : day
+                    ? `${snake?.eaten.has(key) ? heatLevels[0] : heatLevels[day.level]} transition-colors duration-500`
+                    : "bg-transparent";
               const label = day
                 ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${toLocalDate(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                 : undefined;
-              return <div key={`${w}-${d}`} title={label} className={`aspect-square rounded-[2px] ${shade}`} />;
+              return <div key={key} title={label} className={`aspect-square rounded-[2px] ${shade}`} />;
             })
           )}
         </div>
@@ -156,45 +297,147 @@ function ContributionHeatmap() {
   );
 }
 
-// Just the route from a maps app: start marker, drawn path, destination pin
-const ROUTE_PATH = "M40 118 C 70 112, 74 72, 108 66 S 158 90, 184 60 S 212 36, 222 34";
+const pad2 = (n) => String(n).padStart(2, '0');
 
-function RouteMap({ from, to }) {
-  const drawIn = (delay = 0) => ({
-    initial: { pathLength: 0 },
-    whileInView: { pathLength: 1 },
-    viewport: { once: true },
-    transition: { duration: 1.4, delay, ease: transitionCurve }
-  });
-  const popIn = (delay) => ({
-    initial: { opacity: 0, y: 4 },
-    whileInView: { opacity: 1, y: 0 },
-    viewport: { once: true },
-    transition: { duration: 0.5, delay, ease: transitionCurve }
-  });
+// Horizontal carousel: native scroll-snap gives touch and trackpad swipes,
+// mouse users can drag or use the arrows. Cards that are only partly in view are dimmed.
+function ProjectCarousel({ children, label }) {
+  const slides = React.Children.toArray(children);
+  const trackRef = useRef(null);
+  const drag = useRef({ active: false, moved: false, startX: 0, startLeft: 0 });
+  const [ratios, setRatios] = useState({});
+  const [scroll, setScroll] = useState({ progress: 0, thumb: 1 });
+
+  const measure = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setScroll({ progress: max > 0 ? el.scrollLeft / max : 0, thumb: el.scrollWidth > 0 ? el.clientWidth / el.scrollWidth : 1 });
+  };
+
+  useEffect(() => {
+    const track = trackRef.current;
+    const intersection = new IntersectionObserver((entries) => {
+      setRatios((prev) => {
+        const next = { ...prev };
+        entries.forEach((entry) => { next[entry.target.dataset.index] = entry.intersectionRatio; });
+        return next;
+      });
+    }, { root: track, threshold: [0, 0.25, 0.5, 0.75, 0.95, 1] });
+    [...track.children].forEach((slide) => intersection.observe(slide));
+    const resize = new ResizeObserver(measure);
+    resize.observe(track);
+    return () => { intersection.disconnect(); resize.disconnect(); };
+  }, [slides.length]);
+
+  const slideStep = () => {
+    const el = trackRef.current;
+    return el.children[0].offsetWidth + (parseFloat(getComputedStyle(el).columnGap) || 0);
+  };
+  const smooth = () => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+  const go = (dir) => trackRef.current.scrollBy({ left: dir * slideStep(), behavior: smooth() });
+
+  // Mouse drag-to-scroll; touch and trackpads already scroll natively
+  const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag.current = { active: true, moved: false, startX: e.clientX, startLeft: trackRef.current.scrollLeft };
+  };
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const el = trackRef.current;
+    const dx = e.clientX - d.startX;
+    if (!d.moved && Math.abs(dx) > 6) {
+      d.moved = true;
+      el.setPointerCapture(e.pointerId);
+      el.style.scrollSnapType = 'none';
+      el.style.scrollBehavior = 'auto';
+    }
+    if (d.moved) el.scrollLeft = d.startLeft - dx;
+  };
+  const endDrag = () => {
+    const d = drag.current;
+    if (!d.active) return;
+    d.active = false;
+    if (!d.moved) return;
+    const el = trackRef.current;
+    const step = slideStep();
+    el.style.scrollBehavior = '';
+    el.scrollTo({ left: Math.round(el.scrollLeft / step) * step, behavior: smooth() });
+    setTimeout(() => { el.style.scrollSnapType = ''; }, 500);
+  };
+  // A drag should not also count as a click that opens the project
+  const onClickCapture = (e) => {
+    if (drag.current.moved) {
+      e.stopPropagation();
+      e.preventDefault();
+      drag.current.moved = false;
+    }
+  };
+
+  const fullyVisible = slides.map((_, i) => (ratios[i] ?? 1) >= 0.95);
+  const shown = fullyVisible.flatMap((visible, i) => (visible ? [i + 1] : []));
+  const first = shown[0] ?? 1;
+  const last = shown[shown.length - 1] ?? first;
+  const atStart = scroll.progress <= 0.01;
+  const atEnd = scroll.progress >= 0.99;
+  const scrollable = scroll.thumb < 0.999;
+
+  const arrowClass = "w-10 h-10 rounded-full border border-white/15 flex items-center justify-center text-gray-300 hover:bg-white hover:text-black hover:border-white active:scale-95 transition-all duration-300 disabled:opacity-25 disabled:pointer-events-none";
 
   return (
-    <svg
-      viewBox="0 0 260 150"
-      preserveAspectRatio="xMidYMid slice"
-      className="w-full h-full"
-      role="img"
-      aria-label={`${from} to ${to}`}
-    >
-      {/* Route: soft casing underneath, bright line on top */}
-      <motion.path d={ROUTE_PATH} stroke="rgba(255,255,255,0.16)" strokeWidth="8" strokeLinecap="round" fill="none" {...drawIn()} />
-      <motion.path d={ROUTE_PATH} stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" strokeLinecap="round" fill="none" {...drawIn()} />
+    <div>
+      <div
+        ref={trackRef}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={label}
+        tabIndex={0}
+        onScroll={measure}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClickCapture={onClickCapture}
+        onDragStart={(e) => e.preventDefault()}
+        className="flex gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory py-2 -my-2 select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden focus-visible:outline-none"
+      >
+        {slides.map((slide, i) => (
+          <div
+            key={i}
+            data-index={i}
+            aria-roledescription="slide"
+            aria-label={`${i + 1} of ${slides.length}`}
+            className={`shrink-0 snap-start w-[85%] sm:w-[70%] lg:w-[calc((100%_-_1.5rem)/2.15)] 2xl:w-[calc((100%_-_3rem)/3.15)] transition-[opacity,scale] duration-700 ease-out ${fullyVisible[i] ? "" : "opacity-40 scale-[0.97]"}`}
+          >
+            {slide}
+          </div>
+        ))}
+      </div>
 
-      {/* Start marker */}
-      <circle cx="40" cy="118" r="5" fill="#0b0b0b" stroke="rgba(255,255,255,0.9)" strokeWidth="2" />
-      <text x="34" y="138" fill="rgba(255,255,255,0.55)" fontSize="8" letterSpacing="1.5">{from.toUpperCase()}</text>
-
-      {/* Destination pin */}
-      <motion.g {...popIn(1.3)}>
-        <path transform="translate(215 16)" fill="rgba(255,255,255,0.9)" d="M7 0C3.1 0 0 3.1 0 7c0 5.2 7 11 7 11s7-5.8 7-11c0-3.9-3.1-7-7-7zm0 9.6A2.6 2.6 0 1 1 7 4.4a2.6 2.6 0 0 1 0 5.2z" />
-        <text x="208" y="27" fill="rgba(255,255,255,0.55)" fontSize="8" letterSpacing="1.5" textAnchor="end">{to.toUpperCase()}</text>
-      </motion.g>
-    </svg>
+      {scrollable && (
+        <div className="flex items-center gap-4 md:gap-6 mt-6 md:mt-8">
+          {/* Progress: a thumb that shows which part of the row is in view */}
+          <div className="relative h-px flex-1 bg-white/10 overflow-hidden">
+            <div
+              className="absolute inset-y-0 bg-white/70 transition-[left,width] duration-300 ease-out"
+              style={{ width: `${scroll.thumb * 100}%`, left: `${scroll.progress * (1 - scroll.thumb) * 100}%` }}
+            />
+          </div>
+          <span className="text-[9px] md:text-[10px] tracking-[0.3em] text-gray-500 tabular-nums whitespace-nowrap">
+            {pad2(first)}{last > first ? `–${pad2(last)}` : ""} / {pad2(slides.length)}
+          </span>
+          <div className="flex gap-2">
+            <button type="button" aria-label="Previous project" disabled={atStart} onClick={() => go(-1)} className={arrowClass}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <button type="button" aria-label="Next project" disabled={atEnd} onClick={() => go(1)} className={arrowClass}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -248,6 +491,7 @@ export default function Portfolio() {
           </div>
           <div className="space-x-12 text-[9px] tracking-[0.3em] uppercase hidden md:flex text-gray-400 font-medium">
             <a href="#about" className="hover:text-white transition-colors duration-300">About</a>
+            <a href="#education" className="hover:text-white transition-colors duration-300">Education</a>
             <a href="#experience" className="hover:text-white transition-colors duration-300">Experience</a>
             <a href="#projects" className="hover:text-white transition-colors duration-300">Projects</a>
           </div>
@@ -319,12 +563,62 @@ export default function Portfolio() {
           </div>
         </section>
 
-        {/* Experience Section */}
-        <section id="experience" className="pt-16 md:pt-24 px-8 md:px-16 lg:px-24 xl:px-32">
+        {/* Education Section */}
+        <section id="education" className="pt-16 md:pt-24 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
-                01. Experience
+                01. Education
+              </h2>
+              <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "100px" }}
+              transition={{ duration: 0.8, ease: transitionCurve }}
+              className="space-y-8 md:space-y-10"
+            >
+              {educationData.map((edu) => (
+                <div key={edu.school} className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl">
+                  <div className="flex-1">
+                    {/* Date and degree stack on phones; the degree is too long to share a line */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-1 mb-2">
+                      <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase whitespace-nowrap">
+                        {edu.period}
+                      </span>
+                      <span className="hidden sm:inline text-white/20">•</span>
+                      <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
+                        {edu.degree}
+                      </span>
+                    </div>
+                    <h3 className="text-xl md:text-3xl font-light text-white tracking-tight mb-2">
+                      {edu.school}
+                    </h3>
+                    <p className="text-gray-400 font-light text-xs md:text-sm leading-relaxed max-w-xl">
+                      {edu.summary}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
+                    {edu.coursework.map((course) => (
+                      <span key={course} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
+                        {course}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Experience Section */}
+        <section id="experience" className="pt-12 md:pt-16 px-8 md:px-16 lg:px-24 xl:px-32">
+          <div className="max-w-[1400px] w-full mx-auto">
+            <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
+              <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
+                02. Experience
               </h2>
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
             </div>
@@ -334,32 +628,32 @@ export default function Portfolio() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "100px" }} 
               transition={{ duration: 0.8, ease: transitionCurve }}
-              className="space-y-12 md:space-y-16 mb-20 md:mb-24"
+              className="space-y-12 md:space-y-16 mb-14 md:mb-16"
             >
-              {/* Content on the left, the route line on the right (on top for phones) */}
-              <div className="flex flex-col-reverse md:flex-row md:items-center gap-5 md:gap-8 p-5 md:p-6 bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                    <h3 className="text-base md:text-lg font-normal text-white tracking-tight leading-snug">
-                      Guardian Life
-                    </h3>
-                    <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-gray-400 uppercase whitespace-nowrap">
+              <div className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase">
+                      Apr 2022 — Jul 2023
+                    </span>
+                    <span className="text-white/20">•</span>
+                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
                       Software Engineer
                     </span>
                   </div>
-                  <p className="mt-2 text-gray-300 font-light text-xs md:text-sm leading-relaxed max-w-2xl">
+                  <h3 className="text-xl md:text-3xl font-light text-white tracking-tight mb-2">
+                    Guardian Life
+                  </h3>
+                  <p className="text-gray-400 font-light text-xs md:text-sm leading-relaxed max-w-xl">
                     Engineered robust backend microservices utilizing Java Spring Boot and Python FastAPI. Optimized complex database queries and pipelines, reducing latency by 30%.
                   </p>
-                  <p className="mt-2 text-[11px] md:text-xs text-gray-400 leading-relaxed">
-                    {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i, all) => (
-                      <React.Fragment key={tech}>
-                        <span className="whitespace-nowrap">{tech}{i < all.length - 1 && ' ·'}</span>{' '}
-                      </React.Fragment>
-                    ))}
-                  </p>
                 </div>
-                <div className="w-full md:w-[260px] h-[150px] shrink-0">
-                  <RouteMap from="Apr 2022" to="Jul 2023" />
+                <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
+                  {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i) => (
+                    <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
+                      {tech}
+                    </span>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -367,7 +661,7 @@ export default function Portfolio() {
             {/* Projects Section */}
             <div id="projects" className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
-                02. Selected Works
+                03. Selected Works
               </h2>
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
             </div>
@@ -377,8 +671,8 @@ export default function Portfolio() {
               whileInView="visible"
               viewport={{ once: true, margin: "100px" }}
               variants={{ visible: { transition: { staggerChildren: 0.12 } } }}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6"
             >
+              <ProjectCarousel label="Selected works">
               {projectsData.map((project) => (
                 <motion.div
                   key={project.id}
@@ -386,7 +680,7 @@ export default function Portfolio() {
                   onClick={() => setSelectedProject(project)}
                   onMouseEnter={() => setPlayingId(project.id)}
                   onMouseLeave={() => setPlayingId(null)}
-                  className="group relative flex flex-col overflow-hidden bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
+                  className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
                 >
                   {/* Media - still poster, demo animation plays on hover */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-900 border-b border-white/10">
@@ -439,28 +733,27 @@ export default function Portfolio() {
                   </div>
                 </motion.div>
               ))}
-            </motion.div>
-
-            {/* GitHub contribution heatmap */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "100px" }}
-              transition={{ duration: 0.8, ease: transitionCurve }}
-              className="mt-4 md:mt-6"
-            >
-              <ContributionHeatmap />
+              </ProjectCarousel>
             </motion.div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="pt-16 md:pt-20 pb-24 md:pb-32 px-8 md:px-16 lg:px-24 xl:px-32 flex flex-col items-center justify-center text-center">
-          <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-4 drop-shadow-md">Available for Fall 2026 roles</p>
-          <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="text-2xl md:text-4xl text-white font-light hover:text-gray-300 active:scale-95 transition-all duration-300 pb-12 drop-shadow-lg">
-            Let's talk.
-          </a>
-          <p className="text-gray-500 text-[8px] md:text-[9px] tracking-[0.2em] uppercase">© {new Date().getFullYear()} Dheepak Karan. All rights reserved.</p>
+        <footer className="pt-16 md:pt-24 pb-8 px-8 md:px-16 lg:px-24 xl:px-32">
+          <div className="max-w-[1400px] mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 md:gap-12">
+              <div>
+                <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-3 drop-shadow-md">Available for Summer 2027 internships &amp; co-ops</p>
+                <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="inline-block text-2xl md:text-4xl text-white font-light tracking-tight hover:text-gray-300 active:scale-95 transition-all duration-300 drop-shadow-lg">
+                  Let's talk.
+                </a>
+              </div>
+              <ContributionHeatmap />
+            </div>
+            <div className="mt-10 md:mt-12 pt-5 border-t border-white/10">
+              <p className="text-gray-500 text-[8px] md:text-[9px] tracking-[0.2em] uppercase">© {new Date().getFullYear()} Dheepak Karan. All rights reserved.</p>
+            </div>
+          </div>
         </footer>
       </div>
 
