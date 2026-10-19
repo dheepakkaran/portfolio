@@ -82,6 +82,7 @@ const educationData = [
 ];
 
 const GITHUB_USER = "dheepakkaran";
+const EMAIL = "elumalaisanthakuma.d@northeastern.edu";
 // Public mirror of the GitHub contribution calendar (no token needed)
 const CONTRIBUTIONS_URL = `https://github-contributions-api.jogruber.de/v4/${GITHUB_USER}?y=last`;
 // Empty days use the site's neutral translucent grey; active days use GitHub's dark-theme greens
@@ -92,25 +93,48 @@ const MONTHS_SHOWN = 6;
 
 const toLocalDate = (isoDate) => new Date(`${isoDate}T00:00:00`);
 
-// Hover easter egg: a snake (like the GitHub profile "snk" animation) eats the contribution cells.
-// It heads for the square under the cursor; when the cursor rests it hunts the nearest green square itself.
+// Easter egg: a snake (like the GitHub profile "snk" animation) hunts down every green square by
+// itself. When it leaves, a bright wave sweeps back from where it went out, the grid grows back and
+// the year's total counts up over it. It starts by itself, once per visit, when the heatmap scrolls
+// into view, on desktop and phones alike; the cursor plays no part.
 const SNAKE_LENGTH = 6;
 const SNAKE_TICK_MS = 45;
-// The cursor counts as resting after this many snake steps (~0.7s) without moving
-const CURSOR_IDLE_TICKS = 15;
+// Finale: wave delay per square of distance, when the total appears, how long it counts and stays
+const BURST_STEP_MS = 28;
+const TOTAL_DELAY_MS = 500;
+const COUNT_MS = 1100;
+const TOTAL_HOLD_MS = 2600;
 const snakeShades = ["bg-white", "bg-white/80", "bg-white/60", "bg-white/45", "bg-white/30", "bg-white/20"];
 const cellKey = ([w, d]) => `${w}-${d}`;
 const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+// Counts from 0 to `to` with an ease-out, starting after `delay` ms
+function CountUp({ to, delay = 0, duration = COUNT_MS }) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    let begin = null;
+    const step = (now) => {
+      if (begin === null) begin = now + delay;
+      const t = Math.min(1, Math.max(0, (now - begin) / duration));
+      setValue(Math.round(to * (1 - (1 - t) ** 3)));
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [to, delay, duration]);
+  return value.toLocaleString('en-US');
+}
 
 function ContributionHeatmap() {
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(false);
   // { body: [[week, day], ...] head first, eaten: Set } while the snake is out, null otherwise
   const [snake, setSnake] = useState(null);
+  // { origin: [week, day], fading } while the finale plays, null otherwise
+  const [finale, setFinale] = useState(null);
   const sim = useRef(null);
-  const cursor = useRef({ cell: null, idle: 0 });
   const timers = useRef({ interval: null, timeouts: [] });
-  const hovering = useRef(false);
   const rootRef = useRef(null);
   const autoRun = useRef(false);
   const autoPlayed = useRef(false);
@@ -161,20 +185,24 @@ function ContributionHeatmap() {
   });
 
   const gridColumns = { gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` };
+  // The figure GitHub shows on the profile; summed from the days if the API leaves it out
+  const total = data?.total?.lastYear ?? allDays.reduce((sum, day) => sum + day.count, 0);
 
-  const finishSnake = () => {
+  // The snake has left on `exitRow`: the wave starts at that edge, the total counts up, holds, fades
+  const finishSnake = (exitRow) => {
     clearInterval(timers.current.interval);
     sim.current = null;
     if (autoRun.current) {
       autoRun.current = false;
       autoPlayed.current = true;
     }
-    // Leave the eaten grid for a beat, let it grow back, then go again while still hovered
-    setSnake((prev) => prev && { body: [], eaten: prev.eaten });
-    timers.current.timeouts.push(setTimeout(() => {
-      setSnake(null);
-      if (hovering.current) timers.current.timeouts.push(setTimeout(runSnake, 1200));
-    }, 900));
+    setSnake(null);
+    setFinale({ origin: [columns.length - 1, exitRow], fading: false });
+    const fadeAt = TOTAL_DELAY_MS + COUNT_MS + TOTAL_HOLD_MS;
+    timers.current.timeouts.push(
+      setTimeout(() => setFinale((f) => f && { ...f, fading: true }), fadeAt),
+      setTimeout(() => setFinale(null), fadeAt + 600)
+    );
   };
 
   const tickSnake = () => {
@@ -185,21 +213,14 @@ function ContributionHeatmap() {
     const remaining = [...s.greens].filter((k) => !s.eaten.has(k)).map((k) => k.split("-").map(Number));
     const exiting = remaining.length === 0;
 
-    // Target: off the right edge when done, else the cursor's square, else the nearest green square
-    let target;
-    const c = cursor.current;
-    c.idle += 1;
-    if (exiting) {
-      target = [cols + SNAKE_LENGTH, hd];
-    } else if (c.cell && c.idle < CURSOR_IDLE_TICKS && cellKey(c.cell) !== cellKey([hw, hd])) {
-      target = c.cell;
-    } else {
-      target = remaining.reduce((best, cell) => {
+    // Target: off the right edge when done, else the nearest green square
+    const target = exiting
+      ? [cols + SNAKE_LENGTH, hd]
+      : remaining.reduce((best, cell) => {
         const dist = Math.abs(cell[0] - hw) + Math.abs(cell[1] - hd);
         const bestDist = Math.abs(best[0] - hw) + Math.abs(best[1] - hd);
         return dist < bestDist || (dist === bestDist && cell[0] < best[0]) ? cell : best;
       });
-    }
 
     // One square per tick: prefer the axis with the bigger gap, never fold back onto the neck,
     // and avoid the rest of the body when there is another way
@@ -220,7 +241,7 @@ function ContributionHeatmap() {
     s.body = [next, ...s.body].slice(0, SNAKE_LENGTH);
     if (s.greens.has(cellKey(next))) s.eaten.add(cellKey(next));
     if (exiting && s.body.every(([w]) => w >= cols)) {
-      finishSnake();
+      finishSnake(next[1]);
       return;
     }
     setSnake({ body: s.body, eaten: new Set(s.eaten) });
@@ -230,32 +251,18 @@ function ContributionHeatmap() {
     const greens = new Set();
     columns.forEach((week, w) => week.forEach((day, d) => { if (day?.level > 0) greens.add(cellKey([w, d])); }));
     if (!greens.size) return;
-    // Enter from the left edge, on the cursor's row when there is one
-    const head = [0, cursor.current.cell?.[1] ?? 3];
+    // Enter from the left edge, on the middle row
+    const head = [0, 3];
     sim.current = { body: [head], eaten: new Set(greens.has(cellKey(head)) ? [cellKey(head)] : []), greens };
     setSnake({ body: sim.current.body, eaten: new Set(sim.current.eaten) });
     timers.current.interval = setInterval(tickSnake, SNAKE_TICK_MS);
   };
-  const startSnake = () => {
-    hovering.current = true;
-    if (!data || snake || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    runSnake();
-  };
   const stopSnake = () => {
-    hovering.current = false;
-    cursor.current = { cell: null, idle: 0 };
+    autoRun.current = false;
     clearTimers();
     sim.current = null;
     setSnake(null);
-  };
-  const trackCursor = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const w = Math.floor(((e.clientX - rect.left) / rect.width) * columns.length);
-    const d = Math.floor(((e.clientY - rect.top) / rect.height) * 7);
-    cursor.current = {
-      cell: [Math.min(Math.max(w, 0), columns.length - 1), Math.min(Math.max(d, 0), 6)],
-      idle: 0
-    };
+    setFinale(null);
   };
 
   const snakeBody = new Map();
@@ -263,10 +270,9 @@ function ContributionHeatmap() {
     for (let i = snake.body.length - 1; i >= 0; i--) snakeBody.set(cellKey(snake.body[i]), i);
   }
 
-  // Phones have no hover, so there the snake runs by itself once per visit: half a second after
-  // most of the heatmap scrolls into view. Scrolling away stops it; it starts again on return
-  // until one run has finished. Desktop keeps hover.
-  const onAutoVisibility = useEffectEvent((visible) => {
+  // Half a second after most of the heatmap scrolls into view the snake sets off. Scrolling away
+  // stops it; it starts again on return until one run has finished.
+  const onVisibility = useEffectEvent((visible) => {
     autoVisible.current = visible;
     if (visible) {
       if (autoPlayed.current || sim.current) return;
@@ -275,17 +281,15 @@ function ContributionHeatmap() {
         autoRun.current = true;
         runSnake();
       }, 500));
-    } else if (autoRun.current) {
-      autoRun.current = false;
+    } else if (sim.current || finale) {
       stopSnake();
     }
   });
   useEffect(() => {
     const el = rootRef.current;
-    const touch = window.matchMedia('(pointer: coarse)').matches;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (!data || !el || !touch || reduced) return undefined;
-    const observer = new IntersectionObserver(([entry]) => onAutoVisibility(entry.intersectionRatio >= 0.6), { threshold: [0, 0.6, 1] });
+    if (!data || !el || reduced) return undefined;
+    const observer = new IntersectionObserver(([entry]) => onVisibility(entry.intersectionRatio >= 0.6), { threshold: [0, 0.6, 1] });
     observer.observe(el);
     return () => observer.disconnect();
   }, [data]);
@@ -299,9 +303,7 @@ function ContributionHeatmap() {
       href={`https://github.com/${GITHUB_USER}`}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`GitHub contributions for ${GITHUB_USER}`}
-      onMouseEnter={startSnake}
-      onMouseLeave={stopSnake}
+      aria-label={data ? `${total} GitHub contributions in the last year` : `GitHub contributions for ${GITHUB_USER}`}
       className="block w-full max-w-[320px]"
     >
       <div>
@@ -312,7 +314,7 @@ function ContributionHeatmap() {
             </span>
           ))}
         </div>
-        <div className="grid grid-flow-col grid-rows-7 gap-[2px] md:gap-[3px]" style={gridColumns} onMouseMove={trackCursor}>
+        <div className="relative grid grid-flow-col grid-rows-7 gap-[2px] md:gap-[3px]" style={gridColumns}>
           {columns.flatMap((week, w) =>
             Array.from({ length: 7 }, (_, d) => {
               const day = week[d];
@@ -329,8 +331,24 @@ function ContributionHeatmap() {
               const label = day
                 ? `${day.count} contribution${day.count === 1 ? "" : "s"} on ${toLocalDate(day.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
                 : undefined;
-              return <div key={key} title={label} className={`aspect-square rounded-[2px] ${shade}`} />;
+              // Finale: each square flashes as the wave reaches it, nearer the exit point first
+              const burst = finale && day
+                ? { animationDelay: `${Math.round(Math.hypot(w - finale.origin[0], d - finale.origin[1]) * BURST_STEP_MS)}ms` }
+                : undefined;
+              return <div key={key} title={label} style={burst} className={`aspect-square rounded-[2px] ${shade}${burst ? " heat-burst" : ""}`} />;
             })
+          )}
+          {finale && (
+            <div
+              aria-hidden="true"
+              style={{ transitionDelay: finale.fading ? "0ms" : `${TOTAL_DELAY_MS}ms` }}
+              className={`absolute inset-0 flex flex-col items-center justify-center rounded-[3px] bg-black/70 pointer-events-none transition-opacity duration-500 ${finale.fading ? "opacity-0" : "opacity-100 starting:opacity-0"}`}
+            >
+              <span className="text-2xl md:text-3xl font-light text-white tracking-tight tabular-nums leading-none">
+                <CountUp to={total} delay={TOTAL_DELAY_MS} />
+              </span>
+              <span className="mt-2 text-[9px] tracking-[0.25em] uppercase text-gray-400">Contributions in the last year</span>
+            </div>
           )}
         </div>
       </div>
@@ -531,6 +549,59 @@ const FIELD_OPTIONS = {
   rippleIgnore: 'a, button, input, textarea, select, label, [role="button"], [role="region"], [tabindex], .cursor-pointer'
 };
 
+// The address under "Let's talk.", with a copy button: a mailto link alone does nothing for people
+// who have no mail app set up (most Gmail-in-the-browser readers)
+function CopyEmail() {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef(0);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(EMAIL);
+    } catch {
+      // plain http (a LAN address while testing) has no Clipboard API; copy from a hidden textarea
+      const t = document.createElement('textarea');
+      t.value = EMAIL;
+      t.setAttribute('readonly', '');
+      t.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(t);
+      t.select();
+      t.setSelectionRange(0, EMAIL.length);
+      document.execCommand('copy');
+      t.remove();
+    }
+    setCopied(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <a href={`mailto:${EMAIL}`} className="text-gray-400 hover:text-white text-xs md:text-sm font-light transition-colors duration-300">
+        {EMAIL}
+      </a>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label="Copy email address"
+        className="h-7 px-3 rounded-full border border-white/15 bg-white/5 hover:bg-white hover:text-black text-gray-400 text-[9px] tracking-[0.2em] uppercase flex items-center gap-1.5 transition-colors duration-300 cursor-pointer"
+      >
+        {copied ? (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        ) : (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        )}
+        <span aria-live="polite">{copied ? 'Copied' : 'Copy'}</span>
+      </button>
+    </div>
+  );
+}
+
 // Desktop card hover: the demo video mounts only while the card is hovered and fades in over the
 // cover once frames are actually playing, so there is no black flash while it buffers.
 function CardDemo({ src, title }) {
@@ -599,6 +670,15 @@ function DemoVideo({ project }) {
     </div>
   );
 }
+
+// A preview (project demo or resume) opens on its own history entry, so the phone's Back button
+// closes it instead of leaving the site. Closing it any other way goes back through that entry too,
+// which keeps the history clean; the popstate listener in Portfolio does the actual closing.
+const openViaHistory = (open) => {
+  window.history.pushState({ preview: true }, '');
+  open();
+};
+const closeViaHistory = (close) => (window.history.state?.preview ? window.history.back() : close());
 
 export default function Portfolio() {
   const [selectedProject, setSelectedProject] = useState(null);
@@ -669,17 +749,33 @@ export default function Portfolio() {
     };
   }, [selectedProject, isResumeOpen]);
 
+  // Back (popstate) closes whichever preview is open
+  useEffect(() => {
+    const onPop = () => {
+      setSelectedProject(null);
+      setIsResumeOpen(false);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   // Esc closes whichever preview is open
   useEffect(() => {
     if (!selectedProject && !isResumeOpen) return undefined;
     const onKey = (e) => {
       if (e.key !== 'Escape') return;
-      setSelectedProject(null);
-      setIsResumeOpen(false);
+      closeViaHistory(() => {
+        setSelectedProject(null);
+        setIsResumeOpen(false);
+      });
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedProject, isResumeOpen]);
+
+  const openProject = (project) => openViaHistory(() => setSelectedProject(project));
+  const closeProject = () => closeViaHistory(() => setSelectedProject(null));
+  const closeResume = () => closeViaHistory(() => setIsResumeOpen(false));
 
   return (
     <div className="text-gray-200 min-h-screen font-sans selection:bg-gray-200 selection:text-black overflow-x-hidden relative scroll-smooth">
@@ -696,16 +792,17 @@ export default function Portfolio() {
           <div className="text-white font-bold tracking-[0.2em] uppercase text-xs md:text-sm drop-shadow-md">
             Dheepak Karan
           </div>
-          <div className="space-x-12 text-[9px] tracking-[0.3em] uppercase hidden md:flex text-gray-400 font-medium">
-            <a href="#about" className="hover:text-white transition-colors duration-300">About</a>
-            <a href="#education" className="hover:text-white transition-colors duration-300">Education</a>
-            <a href="#experience" className="hover:text-white transition-colors duration-300">Experience</a>
-            <a href="#projects" className="hover:text-white transition-colors duration-300">Projects</a>
-          </div>
+          {/* No menu (the page is short enough to scroll); one quiet line instead, set like the hero's "reliable" */}
+          <figure className="hidden md:flex items-baseline gap-3 drop-shadow-md">
+            <blockquote className="font-serif italic text-sm xl:text-base text-gray-400">
+              “Simplicity is prerequisite for reliability.”
+            </blockquote>
+            <figcaption className="text-[9px] tracking-[0.3em] uppercase text-gray-500">Dijkstra</figcaption>
+          </figure>
         </motion.nav>
 
         {/* Hero Section - Scaled down slightly for standard laptops (lg screens) */}
-        <section id="about" className="min-h-screen flex items-center justify-center pt-24 pb-16 px-8 md:px-16 lg:px-24 xl:px-32">
+        <section id="about" className="min-h-screen md:min-h-[min(100vh,800px)] flex items-center justify-center pt-24 pb-16 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full flex flex-col md:flex-row items-center justify-between gap-10 lg:gap-16 xl:gap-20">
             
             {/* Left Column - Text */}
@@ -717,20 +814,20 @@ export default function Portfolio() {
               <motion.div variants={fadeUp} className="flex items-center gap-4 md:gap-6 mb-6 xl:mb-8">
                 <div className="h-[1px] w-8 md:w-12 bg-white/20"></div>
                 <p className="text-gray-400 tracking-[0.3em] uppercase text-[10px] font-medium drop-shadow-md">
-                  Software Engineer
+                  Software &amp; AI Engineer
                 </p>
               </motion.div>
 
               {/* Scaled down text for lg, massive only on xl to prevent cramped feeling */}
               <motion.h1 variants={fadeUp} className="text-4xl sm:text-5xl md:text-6xl lg:text-[4.5rem] xl:text-[5.5rem] font-light text-white leading-[1.1] tracking-tighter mb-6 xl:mb-8 drop-shadow-lg">
                 Engineering <br className="hidden md:block"/>
-                <span className="text-gray-400 italic font-serif">scalable</span> <br className="hidden md:block"/>
-                backend systems.
+                <span className="text-gray-400 italic font-serif">reliable</span> <br className="hidden md:block"/>
+                AI systems.
               </motion.h1>
 
               <motion.div variants={fadeUp} className="border-l border-white/10 pl-5 xl:pl-6 mb-10 xl:mb-12">
                 <p className="text-gray-400 font-light text-xs sm:text-sm lg:text-sm xl:text-base max-w-sm xl:max-w-md leading-relaxed drop-shadow-md">
-                  Quiet resilience. Navigating complexity and building robust APIs that withstand the storm. Always pushing for optimal performance and clean architecture.
+                  Quiet resilience. A software engineer now building AI agents, RAG pipelines and LLMOps tools, with the guardrails and evals that keep them dependable in production.
                 </p>
               </motion.div>
               
@@ -744,17 +841,17 @@ export default function Portfolio() {
                   onClick={(e) => {
                     if (e.metaKey || e.ctrlKey || e.shiftKey || !window.matchMedia('(pointer: fine)').matches) return;
                     e.preventDefault();
-                    setIsResumeOpen(true);
+                    openViaHistory(() => setIsResumeOpen(true));
                   }}
                   className="text-black bg-white px-6 xl:px-8 py-3 xl:py-4 hover:bg-gray-200 active:scale-95 transition-all duration-300 shadow-lg w-full sm:w-auto text-center"
                 >
                   View Resume
                 </a>
-                <a href="https://github.com/dheepakkaran" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-300 transition-colors duration-300">
-                  GITHUB
-                </a>
-                <a href="https://linkedin.com/in/dheepakkaran" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors duration-300">
+                <a href="https://linkedin.com/in/dheepakkaran" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-300 transition-colors duration-300">
                   LINKEDIN
+                </a>
+                <a href="https://github.com/dheepakkaran" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors duration-300">
+                  GITHUB
                 </a>
               </motion.div>
             </motion.div>
@@ -780,7 +877,7 @@ export default function Portfolio() {
         </section>
 
         {/* Education Section */}
-        <section id="education" className="pt-16 md:pt-24 px-8 md:px-16 lg:px-24 xl:px-32">
+        <section id="education" className="pt-16 md:pt-0 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
               <h2 className="text-[10px] tracking-[0.3em] uppercase text-gray-400">
@@ -893,10 +990,20 @@ export default function Portfolio() {
                 <motion.div
                   key={project.id}
                   variants={fadeUp}
-                  onClick={() => setSelectedProject(project)}
+                  onClick={() => openProject(project)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Preview ${project.title}`}
+                  onKeyDown={(e) => {
+                    // Tab reaches the card and Enter or Space opens the preview; keys pressed on the
+                    // GitHub link inside the card are left to the link
+                    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                    e.preventDefault();
+                    openProject(project);
+                  }}
                   onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPlayingId(project.id); }}
                   onPointerLeave={() => setPlayingId(null)}
-                  className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] pointer-coarse:bg-black/60 border border-white/10 rounded-2xl pointer-fine:backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
+                  className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] pointer-coarse:bg-black/60 border border-white/10 rounded-2xl pointer-fine:backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] focus-visible:outline-none focus-visible:border-white/40 focus-visible:ring-1 focus-visible:ring-white/30 transition-[background-color,border-color,translate,scale] duration-500"
                 >
                   {/* Media - still poster, demo video plays on mouse hover */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-900 border-b border-white/10">
@@ -956,9 +1063,10 @@ export default function Portfolio() {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 md:gap-12">
               <div>
                 <p className="text-gray-400 text-[10px] tracking-[0.3em] uppercase mb-3 drop-shadow-md">Available for Summer 2027 internships &amp; co-ops</p>
-                <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="inline-block text-2xl md:text-4xl text-white font-light tracking-tight hover:text-gray-300 active:scale-95 transition-all duration-300 drop-shadow-lg">
+                <a href={`mailto:${EMAIL}`} className="inline-block text-2xl md:text-4xl text-white font-light tracking-tight hover:text-gray-300 active:scale-95 transition-all duration-300 drop-shadow-lg">
                   Let's talk.
                 </a>
+                <CopyEmail />
               </div>
               <ContributionHeatmap />
             </div>
@@ -979,7 +1087,7 @@ export default function Portfolio() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-pointer"
-              onClick={() => setIsResumeOpen(false)}
+              onClick={closeResume}
             />
             <motion.div
               variants={modernModalVariants}
@@ -1004,7 +1112,7 @@ export default function Portfolio() {
                     Download
                   </a>
                   <button 
-                    onClick={() => setIsResumeOpen(false)}
+                    onClick={closeResume}
                     className="w-8 h-8 rounded-full bg-white/10 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 hover:rotate-90"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1043,7 +1151,7 @@ export default function Portfolio() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
               className="absolute inset-0 bg-black/85 pointer-fine:bg-black/70 pointer-fine:backdrop-blur-md cursor-pointer"
-              onClick={() => setSelectedProject(null)}
+              onClick={closeProject}
             />
             <motion.div
               variants={modernModalVariants}
@@ -1067,7 +1175,7 @@ export default function Portfolio() {
                   </svg>
                 </a>
                 <button
-                  onClick={() => setSelectedProject(null)}
+                  onClick={closeProject}
                   aria-label="Close preview"
                   className="w-10 h-10 rounded-full bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 hover:rotate-90 cursor-pointer backdrop-blur-md"
                 >
