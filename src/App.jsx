@@ -839,33 +839,38 @@ export default function Portfolio() {
               exit="exit"
               className="relative w-full max-w-5xl z-10"
             >
-              <button 
-                onClick={() => setSelectedProject(null)}
-                className="absolute top-4 right-4 md:-top-14 md:right-0 w-10 h-10 rounded-full bg-black/50 md:bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 z-20 hover:rotate-90 cursor-pointer backdrop-blur-md"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+              {/* Top bar: the GitHub link sits next to the close button, so nothing covers the demo */}
+              <div className="absolute top-4 right-4 md:-top-14 md:right-0 z-20 flex items-center gap-2">
+                <a
+                  href={selectedProject.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-10 px-4 rounded-full bg-black/50 md:bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase font-bold transition-all duration-300 backdrop-blur-md"
+                >
+                  View on GitHub
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="7" y1="17" x2="17" y2="7"></line>
+                    <polyline points="7 7 17 7 17 17"></polyline>
+                  </svg>
+                </a>
+                <button 
+                  onClick={() => setSelectedProject(null)}
+                  aria-label="Close preview"
+                  className="w-10 h-10 rounded-full bg-black/50 md:bg-white/10 border border-white/20 hover:bg-white hover:text-black flex items-center justify-center transition-all duration-300 hover:rotate-90 cursor-pointer backdrop-blur-md"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="pointer-events-none">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
 
               {(selectedProject.image || selectedProject.poster) ? (
-                <a 
-                  href={selectedProject.link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  title="View Project Repository"
-                  className="block w-full h-auto cursor-pointer group"
-                >
-                  <img 
-                    src={selectedProject.image || selectedProject.poster} 
-                    alt={selectedProject.title} 
-                    className="w-full h-auto rounded-xl md:rounded-3xl shadow-2xl border border-white/10 group-hover:border-white/30 group-hover:scale-[1.01] transition-all duration-500 ease-out object-cover md:object-contain bg-zinc-900/50"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-black/40 rounded-xl md:rounded-3xl">
-                     <span className="text-white text-xs tracking-widest uppercase border border-white px-4 py-2 bg-black/50 backdrop-blur-sm">View on GitHub</span>
-                  </div>
-                </a>
+                <img 
+                  src={selectedProject.image || selectedProject.poster} 
+                  alt={selectedProject.title} 
+                  className="w-full h-auto rounded-xl md:rounded-3xl shadow-2xl border border-white/10 object-cover md:object-contain bg-zinc-900/50"
+                />
               ) : (
                 <div className="w-full aspect-video bg-zinc-900 border border-white/10 rounded-xl md:rounded-3xl flex items-center justify-center">
                   <p className="text-gray-500 text-xs md:text-sm tracking-[0.2em] uppercase text-center px-4">Image Not Available</p>
