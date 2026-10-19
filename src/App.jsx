@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useEffectEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import profilePic from './profile.jpeg'; 
 import './vendor/character-field.js';
@@ -107,6 +107,10 @@ function ContributionHeatmap() {
   const cursor = useRef({ cell: null, idle: 0 });
   const timers = useRef({ interval: null, timeouts: [] });
   const hovering = useRef(false);
+  const rootRef = useRef(null);
+  const autoRun = useRef(false);
+  const autoPlayed = useRef(false);
+  const autoVisible = useRef(false);
 
   const clearTimers = () => {
     clearInterval(timers.current.interval);
@@ -126,9 +130,6 @@ function ContributionHeatmap() {
       .catch(() => { if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, []);
-
-  // Nothing is better than a broken card
-  if (failed) return null;
 
   const allDays = data?.contributions ?? [];
   // Keep the last MONTHS_SHOWN months, starting on that week's Sunday so the first column is full
@@ -160,6 +161,10 @@ function ContributionHeatmap() {
   const finishSnake = () => {
     clearInterval(timers.current.interval);
     sim.current = null;
+    if (autoRun.current) {
+      autoRun.current = false;
+      autoPlayed.current = true;
+    }
     // Leave the eaten grid for a beat, let it grow back, then go again while still hovered
     setSnake((prev) => prev && { body: [], eaten: prev.eaten });
     timers.current.timeouts.push(setTimeout(() => {
@@ -254,8 +259,39 @@ function ContributionHeatmap() {
     for (let i = snake.body.length - 1; i >= 0; i--) snakeBody.set(cellKey(snake.body[i]), i);
   }
 
+  // Phones have no hover, so there the snake runs by itself once per visit: half a second after
+  // most of the heatmap scrolls into view. Scrolling away stops it; it starts again on return
+  // until one run has finished. Desktop keeps hover.
+  const onAutoVisibility = useEffectEvent((visible) => {
+    autoVisible.current = visible;
+    if (visible) {
+      if (autoPlayed.current || sim.current) return;
+      timers.current.timeouts.push(setTimeout(() => {
+        if (!autoVisible.current || autoPlayed.current || sim.current) return;
+        autoRun.current = true;
+        runSnake();
+      }, 500));
+    } else if (autoRun.current) {
+      autoRun.current = false;
+      stopSnake();
+    }
+  });
+  useEffect(() => {
+    const el = rootRef.current;
+    const touch = window.matchMedia('(pointer: coarse)').matches;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!data || !el || !touch || reduced) return undefined;
+    const observer = new IntersectionObserver(([entry]) => onAutoVisibility(entry.intersectionRatio >= 0.6), { threshold: [0, 0.6, 1] });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [data]);
+
+  // Nothing is better than a broken card
+  if (failed) return null;
+
   return (
     <a
+      ref={rootRef}
       href={`https://github.com/${GITHUB_USER}`}
       target="_blank"
       rel="noopener noreferrer"
