@@ -307,7 +307,7 @@ function ContributionHeatmap() {
       <div>
         <div className="grid gap-[2px] md:gap-[3px] h-4 mb-1.5" style={gridColumns}>
           {monthLabels.map((label, i) => (
-            <span key={i} className="text-[9px] md:text-[10px] leading-4 text-gray-500 whitespace-nowrap">
+            <span key={i} className="text-[10px] leading-4 text-gray-500 whitespace-nowrap">
               {label}
             </span>
           ))}
@@ -465,7 +465,7 @@ function ProjectCarousel({ children, label }) {
               style={{ width: `${scroll.thumb * 100}%`, left: `${scroll.progress * (1 - scroll.thumb) * 100}%` }}
             />
           </div>
-          <span className="text-[9px] md:text-[10px] tracking-[0.3em] text-gray-500 tabular-nums whitespace-nowrap">
+          <span className="text-[10px] tracking-[0.3em] text-gray-500 tabular-nums whitespace-nowrap">
             {pad2(first)}{last > first ? `–${pad2(last)}` : ""} / {pad2(slides.length)}
           </span>
           <div className="flex gap-2">
@@ -614,6 +614,10 @@ export default function Portfolio() {
       ...FIELD_OPTIONS,
       rerollRate: lowPower ? 0.010 : 0.015,
       maskDetail: lowPower ? 0 : 5,
+      // No cursor glow on touch, so the resting texture reads dimmer there: lift it about 1.5x.
+      // The contrast ceilings stay as calculated, so text over the field keeps its contrast.
+      opacityMin: touch ? 0.06 : 0.04,
+      opacityMax: touch ? 0.15 : 0.10,
       // Touch screens have no cursor to decode under, so there ~5 script-style lines are always on
       // screen, each typing in slowly (letters scramble, then settle) and dissolving slowly, and a
       // tap shows a word where it lands. Desktop stays cursor-only.
@@ -634,7 +638,7 @@ export default function Portfolio() {
       const hero = !next || next.getBoundingClientRect().top > window.innerHeight * 0.5;
       if (hero === inHero) return;
       inHero = hero;
-      field.canvas.style.opacity = hero ? '1' : '0.6';
+      field.canvas.style.opacity = hero ? '1' : (touch ? '0.75' : '0.6');
     };
     let ticking = false;
     const onScroll = () => {
@@ -663,6 +667,18 @@ export default function Portfolio() {
     return () => {
       document.body.style.overflow = 'auto';
     };
+  }, [selectedProject, isResumeOpen]);
+
+  // Esc closes whichever preview is open
+  useEffect(() => {
+    if (!selectedProject && !isResumeOpen) return undefined;
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      setSelectedProject(null);
+      setIsResumeOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [selectedProject, isResumeOpen]);
 
   return (
@@ -700,7 +716,7 @@ export default function Portfolio() {
             >
               <motion.div variants={fadeUp} className="flex items-center gap-4 md:gap-6 mb-6 xl:mb-8">
                 <div className="h-[1px] w-8 md:w-12 bg-white/20"></div>
-                <p className="text-gray-400 tracking-[0.3em] uppercase text-[9px] md:text-[10px] font-medium drop-shadow-md">
+                <p className="text-gray-400 tracking-[0.3em] uppercase text-[10px] font-medium drop-shadow-md">
                   Software Engineer
                 </p>
               </motion.div>
@@ -718,13 +734,22 @@ export default function Portfolio() {
                 </p>
               </motion.div>
               
-              <motion.div variants={fadeUp} className="flex flex-wrap gap-6 xl:gap-8 items-center text-[9px] xl:text-[10px] uppercase tracking-[0.2em] font-bold">
-                <button 
-                  onClick={() => setIsResumeOpen(true)}
+              <motion.div variants={fadeUp} className="flex flex-wrap gap-6 xl:gap-8 items-center text-[10px] md:text-[9px] xl:text-[10px] uppercase tracking-[0.2em] font-bold">
+                {/* A real link to the PDF: phones open it in their own viewer (a PDF embedded in the page is
+                    often blank there), while a plain click on desktop opens the in-page preview */}
+                <a
+                  href="./Dheepak_Karan_Resume.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || !window.matchMedia('(pointer: fine)').matches) return;
+                    e.preventDefault();
+                    setIsResumeOpen(true);
+                  }}
                   className="text-black bg-white px-6 xl:px-8 py-3 xl:py-4 hover:bg-gray-200 active:scale-95 transition-all duration-300 shadow-lg w-full sm:w-auto text-center"
                 >
                   View Resume
-                </button>
+                </a>
                 <a href="https://github.com/dheepakkaran" target="_blank" rel="noopener noreferrer" className="text-white hover:text-gray-300 transition-colors duration-300">
                   GITHUB
                 </a>
@@ -758,7 +783,7 @@ export default function Portfolio() {
         <section id="education" className="pt-16 md:pt-24 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
-              <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
+              <h2 className="text-[10px] tracking-[0.3em] uppercase text-gray-400">
                 01. Education
               </h2>
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
@@ -776,11 +801,11 @@ export default function Portfolio() {
                   <div className="flex-1">
                     {/* Date and degree stack on phones; the degree is too long to share a line */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-1 mb-2">
-                      <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase whitespace-nowrap">
+                      <span className="text-[9px] tracking-[0.3em] text-gray-500 uppercase whitespace-nowrap">
                         {edu.period}
                       </span>
                       <span className="hidden sm:inline text-white/20">•</span>
-                      <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
+                      <span className="text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
                         {edu.degree}
                       </span>
                     </div>
@@ -793,7 +818,7 @@ export default function Portfolio() {
                   </div>
                   <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
                     {edu.coursework.map((course) => (
-                      <span key={course} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
+                      <span key={course} className="text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
                         {course}
                       </span>
                     ))}
@@ -808,7 +833,7 @@ export default function Portfolio() {
         <section id="experience" className="pt-12 md:pt-16 px-8 md:px-16 lg:px-24 xl:px-32">
           <div className="max-w-[1400px] w-full mx-auto">
             <div className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
-              <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
+              <h2 className="text-[10px] tracking-[0.3em] uppercase text-gray-400">
                 02. Experience
               </h2>
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
@@ -824,11 +849,11 @@ export default function Portfolio() {
               <div className="py-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-6 hover:bg-white/[0.02] md:px-4 transition-colors duration-300 rounded-xl">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-500 uppercase">
+                    <span className="text-[9px] tracking-[0.3em] text-gray-500 uppercase">
                       Apr 2022 — Jul 2023
                     </span>
                     <span className="text-white/20">•</span>
-                    <span className="text-[8px] md:text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
+                    <span className="text-[9px] tracking-[0.3em] text-gray-400 uppercase font-medium">
                       Software Engineer
                     </span>
                   </div>
@@ -841,7 +866,7 @@ export default function Portfolio() {
                 </div>
                 <div className="flex flex-wrap md:justify-end gap-1.5 mt-2 md:mt-0 w-full md:max-w-[220px]">
                   {['Java Spring Boot', 'FastAPI', 'PostgreSQL', 'Kafka', 'Docker'].map((tech, i) => (
-                    <span key={i} className="text-[8px] md:text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
+                    <span key={i} className="text-[9px] tracking-[0.1em] text-gray-400 uppercase px-2.5 py-1 bg-white/5 border border-white/10 rounded-full">
                       {tech}
                     </span>
                   ))}
@@ -851,7 +876,7 @@ export default function Portfolio() {
 
             {/* Projects Section */}
             <div id="projects" className="flex justify-start md:justify-end items-center gap-4 md:gap-6 mb-10 md:mb-12">
-              <h2 className="text-[9px] md:text-[10px] tracking-[0.3em] uppercase text-gray-400">
+              <h2 className="text-[10px] tracking-[0.3em] uppercase text-gray-400">
                 03. Selected Works
               </h2>
               <div className="h-[1px] w-8 md:w-12 bg-white/30"></div>
@@ -871,7 +896,7 @@ export default function Portfolio() {
                   onClick={() => setSelectedProject(project)}
                   onPointerEnter={(e) => { if (e.pointerType === 'mouse') setPlayingId(project.id); }}
                   onPointerLeave={() => setPlayingId(null)}
-                  className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] border border-white/10 rounded-2xl backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
+                  className="group relative flex flex-col h-full overflow-hidden bg-white/[0.02] pointer-coarse:bg-black/60 border border-white/10 rounded-2xl pointer-fine:backdrop-blur-sm cursor-pointer hover:bg-white/[0.04] hover:border-white/25 hover:-translate-y-1 active:scale-[0.99] transition-[background-color,border-color,translate,scale] duration-500"
                 >
                   {/* Media - still poster, demo video plays on mouse hover */}
                   <div className="relative aspect-video overflow-hidden bg-zinc-900 border-b border-white/10">
@@ -886,7 +911,7 @@ export default function Portfolio() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
                     {project.video && (
-                      <span className="absolute top-4 left-4 flex items-center gap-2 text-[8px] md:text-[9px] tracking-[0.2em] uppercase text-white/80 px-2.5 py-1 bg-black/50 border border-white/15 rounded-full backdrop-blur-md">
+                      <span className="absolute top-4 left-4 flex items-center gap-2 text-[9px] tracking-[0.2em] uppercase text-white/80 px-2.5 py-1 bg-black/50 border border-white/15 rounded-full backdrop-blur-md">
                         <span className="w-1.5 h-1.5 rounded-full bg-white/70 group-hover:bg-red-500 transition-colors duration-300"></span>
                         <span className="hidden pointer-fine:inline">Hover to play</span>
                         <span className="pointer-fine:hidden">Tap to play</span>
@@ -901,7 +926,7 @@ export default function Portfolio() {
                         <h3 className="text-base md:text-lg font-normal text-white tracking-tight leading-snug">
                           {project.title}
                         </h3>
-                        <span className="text-[9px] md:text-[10px] tracking-[0.2em] text-gray-400 uppercase">
+                        <span className="text-[10px] tracking-[0.2em] text-gray-400 uppercase">
                           {project.category}
                         </span>
                       </div>
@@ -914,7 +939,7 @@ export default function Portfolio() {
                         ))}
                       </p>
                     </div>
-                    <a href={project.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 mt-1 text-[9px] md:text-[10px] tracking-[0.2em] uppercase font-bold text-gray-400 hover:text-white transition-colors duration-300">
+                    <a href={project.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="shrink-0 mt-1 text-[10px] tracking-[0.2em] uppercase font-bold text-gray-400 hover:text-white transition-colors duration-300">
                       GitHub ↗
                     </a>
                   </div>
@@ -930,7 +955,7 @@ export default function Portfolio() {
           <div className="max-w-[1400px] mx-auto">
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 md:gap-12">
               <div>
-                <p className="text-gray-400 text-[9px] md:text-[10px] tracking-[0.3em] uppercase mb-3 drop-shadow-md">Available for Summer 2027 internships &amp; co-ops</p>
+                <p className="text-gray-400 text-[10px] tracking-[0.3em] uppercase mb-3 drop-shadow-md">Available for Summer 2027 internships &amp; co-ops</p>
                 <a href="mailto:elumalaisanthakuma.d@northeastern.edu" className="inline-block text-2xl md:text-4xl text-white font-light tracking-tight hover:text-gray-300 active:scale-95 transition-all duration-300 drop-shadow-lg">
                   Let's talk.
                 </a>
@@ -938,7 +963,7 @@ export default function Portfolio() {
               <ContributionHeatmap />
             </div>
             <div className="mt-10 md:mt-12 pt-5 border-t border-white/10">
-              <p className="text-gray-500 text-[8px] md:text-[9px] tracking-[0.2em] uppercase">© {new Date().getFullYear()} Dheepak Karan. All rights reserved.</p>
+              <p className="text-gray-500 text-[9px] tracking-[0.2em] uppercase">© {new Date().getFullYear()} Dheepak Karan. All rights reserved.</p>
             </div>
           </div>
         </footer>
