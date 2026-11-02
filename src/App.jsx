@@ -29,6 +29,39 @@ const modernModalVariants = {
 };
 
 const projectsData = [
+  // Hackathon work first: `category` names the event and the card gets a "Hackathon" badge
+  {
+    id: "null-hypothesis",
+    title: "Null Hypothesis",
+    category: "ScienceClaw × NVIDIA",
+    hackathon: true,
+    tags: ["Python", "Multi-Agent", "Gemini 3 Flash", "NVIDIA Evo 2", "Vertex AI"],
+    poster: "./projects/null-hypothesis-poster.jpg",
+    video: "./projects/null-hypothesis.mp4",
+    videoSmall: "./projects/null-hypothesis-720.mp4",
+    link: "https://github.com/karunprem45/null-hypothesis"
+  },
+  {
+    id: "trialreach",
+    title: "TrialReach",
+    category: "Hackachusetts 2026",
+    hackathon: true,
+    tags: ["Python", "Streamlit", "Plotly", "LLM Agent", "Kiro"],
+    poster: "./projects/trialreach-poster.jpg",
+    video: "./projects/trialreach.mp4",
+    videoSmall: "./projects/trialreach-720.mp4",
+    link: "https://github.com/karunprem45/trialreach"
+  },
+  {
+    id: "xg-from-words",
+    title: "xG From Words",
+    category: "Sports Analytics & NLP",
+    tags: ["Python", "Sentence Transformers", "XGBoost", "scikit-learn"],
+    poster: "./projects/xg-from-words-poster.jpg",
+    video: "./projects/xg-from-words.mp4",
+    videoSmall: "./projects/xg-from-words-720.mp4",
+    link: "https://github.com/dheepakkaran/xg-from-words"
+  },
   {
     id: "incident-triage",
     title: "Incident Triage Agent",
@@ -58,39 +91,6 @@ const projectsData = [
     video: "./projects/leetbot.mp4",
     videoSmall: "./projects/leetbot-720.mp4",
     link: "https://github.com/dheepakkaran/leetbot"
-  },
-  {
-    id: "xg-from-words",
-    title: "xG From Words",
-    category: "Sports Analytics & NLP",
-    tags: ["Python", "Sentence Transformers", "XGBoost", "scikit-learn"],
-    poster: "./projects/xg-from-words-poster.jpg",
-    video: "./projects/xg-from-words.mp4",
-    videoSmall: "./projects/xg-from-words-720.mp4",
-    link: "https://github.com/dheepakkaran/xg-from-words"
-  },
-  // Hackathon work: `category` names the event and the card gets a "Hackathon" badge
-  {
-    id: "trialreach",
-    title: "TrialReach",
-    category: "Hackachusetts 2026",
-    hackathon: true,
-    tags: ["Python", "Streamlit", "Plotly", "LLM Agent", "Kiro"],
-    poster: "./projects/trialreach-poster.jpg",
-    video: "./projects/trialreach.mp4",
-    videoSmall: "./projects/trialreach-720.mp4",
-    link: "https://github.com/karunprem45/trialreach"
-  },
-  {
-    id: "null-hypothesis",
-    title: "Null Hypothesis",
-    category: "ScienceClaw × NVIDIA",
-    hackathon: true,
-    tags: ["Python", "Multi-Agent", "Gemini 3 Flash", "NVIDIA Evo 2", "Vertex AI"],
-    poster: "./projects/null-hypothesis-poster.jpg",
-    video: "./projects/null-hypothesis.mp4",
-    videoSmall: "./projects/null-hypothesis-720.mp4",
-    link: "https://github.com/karunprem45/null-hypothesis"
   }
 ];
 
