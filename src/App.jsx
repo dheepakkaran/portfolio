@@ -68,6 +68,29 @@ const projectsData = [
     video: "./projects/xg-from-words.mp4",
     videoSmall: "./projects/xg-from-words-720.mp4",
     link: "https://github.com/dheepakkaran/xg-from-words"
+  },
+  // Hackathon work: `category` names the event and the card gets a "Hackathon" badge
+  {
+    id: "trialreach",
+    title: "TrialReach",
+    category: "Hackachusetts 2026",
+    hackathon: true,
+    tags: ["Python", "Streamlit", "Plotly", "LLM Agent", "Kiro"],
+    poster: "./projects/trialreach-poster.jpg",
+    video: "./projects/trialreach.mp4",
+    videoSmall: "./projects/trialreach-720.mp4",
+    link: "https://github.com/karunprem45/trialreach"
+  },
+  {
+    id: "null-hypothesis",
+    title: "Null Hypothesis",
+    category: "ScienceClaw × NVIDIA",
+    hackathon: true,
+    tags: ["Python", "Multi-Agent", "Gemini 3 Flash", "NVIDIA Evo 2", "Vertex AI"],
+    poster: "./projects/null-hypothesis-poster.jpg",
+    video: "./projects/null-hypothesis.mp4",
+    videoSmall: "./projects/null-hypothesis-720.mp4",
+    link: "https://github.com/karunprem45/null-hypothesis"
   }
 ];
 
@@ -1022,6 +1045,11 @@ export default function Portfolio() {
                         <span className="w-1.5 h-1.5 rounded-full bg-white/70 group-hover:bg-red-500 transition-colors duration-300"></span>
                         <span className="hidden pointer-fine:inline">Hover to play</span>
                         <span className="pointer-fine:hidden">Tap to play</span>
+                      </span>
+                    )}
+                    {project.hackathon && (
+                      <span className="absolute top-4 right-4 text-[9px] tracking-[0.2em] uppercase text-white/80 px-2.5 py-1 bg-black/50 border border-white/15 rounded-full backdrop-blur-md">
+                        Hackathon
                       </span>
                     )}
                   </div>
